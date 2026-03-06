@@ -1,0 +1,66 @@
+.navbar {
+    background-color: transparent !important;
+}
+
+.revplay-brand {
+    min-width: 0;
+    text-decoration: none;
+}
+
+.revplay-logo {
+    height: 56px;
+    width: auto;
+    max-width: min(132px, 24vw);
+    object-fit: contain;
+    display: block;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+}
+
+.btn-dark {
+    border: 1px solid var(--navbar-user-btn-border);
+    background: var(--navbar-user-btn-bg);
+    color: var(--text-primary);
+
+    &:hover {
+        background-color: var(--navbar-user-btn-hover-bg);
+        color: var(--text-primary);
+    }
+}
+
+.avatar-placeholder {
+    width: 28px;
+    height: 28px;
+    background: var(--navbar-avatar-bg);
+    overflow: hidden;
+}
+
+.avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.dropdown-menu-dark {
+    background: var(--dropdown-bg);
+    border: 1px solid var(--dropdown-border);
+    backdrop-filter: blur(10px);
+    color: var(--text-primary);
+
+    .dropdown-item:hover {
+        background-color: var(--dropdown-item-hover-bg);
+        color: var(--dropdown-item-hover-color);
+    }
+}
+
+.premium-badge {
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+}
+
+@media (max-width: 768px) {
+    .revplay-logo {
+        height: 46px;
+        max-width: min(110px, 30vw);
+    }
+}

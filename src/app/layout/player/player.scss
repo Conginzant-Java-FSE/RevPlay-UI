@@ -1,0 +1,238 @@
+.player {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(360px, 1.5fr) minmax(170px, 1fr);
+    align-items: center;
+    gap: 1rem;
+    background: linear-gradient(180deg, rgba(11, 16, 25, 0.9), rgba(8, 12, 19, 0.96));
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    position: relative;
+}
+
+.current-track {
+    min-width: 0;
+}
+
+.album-art {
+    width: 56px;
+    height: 56px;
+    background-color: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.title {
+    font-size: 0.9rem;
+    max-width: 100%;
+}
+
+.track-info {
+    min-width: 0;
+}
+
+.btn-link {
+    text-decoration: none;
+
+    &:hover:not(:disabled) {
+        color: var(--text-primary) !important;
+        transform: scale(1.05);
+    }
+}
+
+.controls {
+    min-width: 0;
+}
+
+.buttons {
+    gap: 0.2rem;
+}
+
+.control-btn {
+    border: 0;
+    color: var(--text-secondary);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+
+    &.active {
+        color: var(--accent-secondary);
+    }
+
+    &.inactive {
+        color: var(--text-muted);
+    }
+
+    &:hover:not(:disabled) {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.08);
+        transform: translateY(-1px);
+    }
+}
+
+.play-pause-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    color: #052012 !important;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border: none;
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 16px rgba(111, 140, 255, 0.35);
+    }
+
+    &:active {
+        transform: scale(0.95);
+    }
+}
+
+.player-slider {
+    height: 4px;
+    accent-color: rgba(242, 247, 255, 0.92);
+
+    &::-webkit-slider-thumb {
+        appearance: none;
+        width: 0;
+        height: 0;
+        transition: all 0.1s ease;
+    }
+
+    &:hover::-webkit-slider-thumb {
+        width: 12px;
+        height: 12px;
+        background-color: var(--text-primary);
+        border-radius: 50%;
+    }
+
+    &:hover {
+        accent-color: var(--accent-secondary);
+    }
+}
+
+.volume-control {
+    width: 110px;
+}
+
+.repeat-one-badge {
+    position: absolute;
+    top: 2px;
+    right: 3px;
+    min-width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--accent-secondary);
+    color: #02160b;
+    font-size: 0.55rem;
+    line-height: 11px;
+    text-align: center;
+    font-weight: 700;
+}
+
+.queue-count {
+    position: absolute;
+    top: -3px;
+    right: -2px;
+    min-width: 15px;
+    height: 15px;
+    border-radius: 999px;
+    background: var(--accent-primary);
+    color: #03170c;
+    font-size: 0.65rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+}
+
+.queue-panel {
+    position: absolute;
+    right: 12px;
+    bottom: calc(100% + 8px);
+    width: min(420px, 55vw);
+    max-height: 320px;
+    overflow: hidden;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(11, 17, 27, 0.97);
+    box-shadow: 0 16px 28px rgba(0, 0, 0, 0.42);
+    padding: 12px;
+    z-index: 1500;
+}
+
+.queue-list {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.queue-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    border-radius: 10px;
+    padding: 0.45rem 0.5rem;
+    border: 1px solid transparent;
+
+    &.active {
+        border-color: rgba(243, 181, 107, 0.32);
+        background: rgba(243, 181, 107, 0.08);
+    }
+}
+
+.queue-main {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+}
+
+.queue-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+// Responsive overrides
+@media (max-width: 768px) {
+    .player {
+        grid-template-columns: 1fr;
+        gap: 0.35rem;
+        padding: 0 10px;
+    }
+
+    .current-track,
+    .controls,
+    .extra-controls {
+        width: 100%;
+    }
+
+    .controls {
+        align-items: center !important;
+
+        .progress-container {
+            width: 100%;
+        }
+    }
+
+    .extra-controls {
+        justify-content: center !important;
+    }
+
+    .queue-panel {
+        display: none;
+    }
+
+    .album-art {
+        width: 40px;
+        height: 40px;
+    }
+
+    .track-info .artist {
+        font-size: 0.74rem !important;
+    }
+}
