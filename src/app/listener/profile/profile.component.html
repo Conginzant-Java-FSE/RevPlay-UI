@@ -1,0 +1,174 @@
+<div class="profile-container p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="text-white fw-bold mb-1">My Profile</h2>
+            <p class="text-muted m-0">Update your public listener details.</p>
+        </div>
+    </div>
+
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-4">{{ error }}</div>
+    <div *ngIf="successMessage" class="alert alert-success bg-dark border-success text-success mb-4">{{ successMessage }}</div>
+
+    <div *ngIf="isLoading" class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+
+    <div *ngIf="!isLoading">
+        <div class="bg-secondary-panel rounded-4 p-4 shadow-sm mb-4">
+            <form (ngSubmit)="saveProfile()">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small fw-bold text-uppercase">Profile Image</label>
+                        <div class="profile-image-box rounded-4 p-3 bg-dark border border-secondary">
+                            <div class="ratio ratio-1x1 rounded-3 overflow-hidden bg-black mb-3">
+                                <img *ngIf="hasProfileImage()" [src]="getProfileImageUrl()" (error)="onProfileImageLoadError()"
+                                    class="w-100 h-100 object-fit-cover" alt="Profile image">
+                                <div *ngIf="!hasProfileImage()"
+                                    class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                                    <i class="bi bi-person-circle fs-1"></i>
+                                </div>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <label class="btn btn-outline-light btn-sm rounded-pill">
+                                    <input type="file" accept="image/*" class="d-none" (change)="onProfileImageSelected($event)">
+                                    {{ isUploadingImage ? 'Uploading...' : 'Upload Image' }}
+                                </label>
+                                <div class="small text-muted text-truncate" *ngIf="selectedImageName">{{ selectedImageName }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-8">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small fw-bold text-uppercase">Full Name</label>
+                                <input class="form-control custom-input" [(ngModel)]="profile.fullName" name="fullName" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small fw-bold text-uppercase">Country</label>
+                                <input class="form-control custom-input" [(ngModel)]="profile.country" name="country">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small fw-bold text-uppercase">Bio</label>
+                                <textarea class="form-control custom-input" rows="4" [(ngModel)]="profile.bio" name="bio"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button class="btn btn-primary rounded-pill px-4 text-dark fw-bold" type="submit"
+                        [disabled]="isSaving || isUploadingImage">
+                        <span *ngIf="!isSaving">Save Profile</span>
+                        <span *ngIf="isSaving" class="spinner-border spinner-border-sm"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <section class="bg-secondary-panel rounded-4 p-4 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div>
+                    <h4 class="text-white fw-bold mb-1">Listening History & Stats</h4>
+                    <p class="text-muted m-0">Recently played and full playback history.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-light rounded-pill"
+                        [disabled]="isClearingHistory || playHistory.length === 0 || isDeletingOwnData"
+                        (click)="clearListeningHistory()">
+                        {{ isClearingHistory ? 'Clearing...' : 'Clear History' }}
+                    </button>
+                    <button class="btn btn-outline-danger rounded-pill"
+                        [disabled]="isDeletingOwnData"
+                        (click)="deleteMyData()">
+                        {{ isDeletingOwnData ? 'Deleting...' : 'Delete My Data' }}
+                    </button>
+                </div>
+            </div>
+
+            <div *ngIf="historyError" class="alert alert-warning bg-dark border-warning text-warning mb-3">
+                {{ historyError }}
+            </div>
+
+            <div *ngIf="isHistoryLoading" class="d-flex justify-content-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+
+            <div *ngIf="!isHistoryLoading">
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="history-stat-card">
+                            <div class="label">Total Plays</div>
+                            <div class="value">{{ historyStats.totalPlays }}</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="history-stat-card">
+                            <div class="label">Song Plays</div>
+                            <div class="value">{{ historyStats.songPlays }}</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="history-stat-card">
+                            <div class="label">Podcast Plays</div>
+                            <div class="value">{{ historyStats.podcastPlays }}</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="history-stat-card">
+                            <div class="label">Listening Time</div>
+                            <div class="value">{{ formatDuration(historyStats.totalDurationSeconds) }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <div class="col-lg-6">
+                        <div class="history-panel">
+                            <h6 class="text-white fw-bold mb-3">Recently Played</h6>
+                            <div *ngIf="recentlyPlayed.length === 0" class="text-muted small">No recently played items.</div>
+                            <div class="history-list" *ngIf="recentlyPlayed.length > 0">
+                                <div class="history-item" *ngFor="let item of recentlyPlayed">
+                                    <div class="title text-white">{{ getHistoryTitle(item) }}</div>
+                                    <div class="meta text-muted">
+                                        <span>{{ getHistoryArtist(item) }}</span>
+                                        <span class="mx-2">-</span>
+                                        <span>{{ item.playedAt | date:'short' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6">
+                        <div class="history-panel">
+                            <h6 class="text-white fw-bold mb-3">Play History</h6>
+                            <div *ngIf="playHistory.length === 0" class="text-muted small">No play history yet.</div>
+                            <div class="table-responsive history-table" *ngIf="playHistory.length > 0">
+                                <table class="table table-borderless text-white align-middle m-0">
+                                    <thead class="text-muted small text-uppercase">
+                                        <tr>
+                                            <th class="ps-0">Title</th>
+                                            <th>Type</th>
+                                            <th class="text-end pe-0">Played At</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr *ngFor="let item of playHistory | slice:0:20">
+                                            <td class="ps-0">
+                                                <div>{{ getHistoryTitle(item) }}</div>
+                                                <small class="text-muted">{{ getHistoryArtist(item) }}</small>
+                                            </td>
+                                            <td>{{ item.type }}</td>
+                                            <td class="text-end pe-0 small">{{ item.playedAt | date:'short' }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>

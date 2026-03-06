@@ -1,0 +1,38 @@
+<div class="content">
+    <h2 class="title">Liked Songs</h2>
+
+    <div *ngIf="isLoading" class="text-muted">Loading liked songs...</div>
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger">{{ error }}</div>
+
+    <div *ngIf="!isLoading && !error && likedSongs.length === 0" class="empty-note">
+        You have not liked any songs yet.
+    </div>
+
+    <div class="table-responsive" *ngIf="!isLoading && !error && likedSongs.length > 0">
+        <table class="table table-dark align-middle">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Artist</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let song of likedSongs">
+                    <td>
+                        <div class="track-cell">
+                            <img [src]="song.imageUrl || 'assets/images/placeholder-album.png'" alt="Song cover" class="track-thumb" loading="lazy">
+                            <span class="track-title text-truncate">{{ song.title }}</span>
+                        </div>
+                    </td>
+                    <td>{{ song.artistName }}</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-primary rounded-pill" (click)="playSong(song)">
+                            Play
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

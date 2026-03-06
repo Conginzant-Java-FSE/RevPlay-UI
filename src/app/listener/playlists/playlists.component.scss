@@ -1,0 +1,53 @@
+.library-container {
+    color: var(--text-primary);
+    padding: 0.65rem 0.5rem 1.4rem;
+}
+
+.tab-btn {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    padding: 0.35rem 0.95rem;
+
+    &.active {
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        color: #072114;
+        border-color: transparent;
+        font-weight: 700;
+    }
+}
+
+.playlist-card {
+    border-radius: 14px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+
+    &:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 14px 24px rgba(0, 0, 0, 0.34);
+    }
+}
+
+.song-search-list {
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.song-search-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    padding: 0.5rem 0.65rem;
+    margin-bottom: 0.45rem;
+}
+
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-border-color: rgba(255, 255, 255, 0.08);
+}
