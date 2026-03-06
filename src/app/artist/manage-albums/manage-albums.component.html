@@ -1,0 +1,152 @@
+<div class="manage-albums premium-fade-in p-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+        <div>
+            <h1 class="fw-bold text-white mb-1">Album Manager</h1>
+            <p class="text-muted mb-0">Create, edit, and curate albums with songs.</p>
+        </div>
+        <a routerLink="/creator-studio/upload-song" class="btn btn-outline-light rounded-pill px-4">Upload Song</a>
+    </div>
+
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-3">{{ error }}</div>
+    <div *ngIf="successMessage" class="alert alert-success bg-dark border-success text-success mb-3">{{ successMessage }}</div>
+
+    <div class="row g-4">
+        <div class="col-xl-4">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-3 h-100">
+                <h5 class="text-white mb-3">Create Album</h5>
+
+                <div class="mb-3">
+                    <div class="cover-preview mx-auto mb-2">
+                        <img [src]="createCoverPreview || 'assets/images/placeholder-album.png'" alt="Album cover">
+                    </div>
+                    <input type="file" class="form-control custom-input readable-file-input" accept="image/*" (change)="onCreateCoverSelected($event)">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Title</label>
+                    <input class="form-control custom-input" [(ngModel)]="newAlbum.title" maxlength="200">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Release Date</label>
+                    <input type="date" class="form-control custom-input" [(ngModel)]="newAlbum.releaseDate">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Description</label>
+                    <textarea rows="3" class="form-control custom-input" [(ngModel)]="newAlbum.description"></textarea>
+                </div>
+
+                <button type="button" class="btn btn-primary rounded-pill text-dark fw-bold w-100"
+                    [disabled]="isSaving || !newAlbum.title.trim() || !createCoverFile" (click)="createAlbum()">
+                    Create Album
+                </button>
+            </div>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-3 h-100">
+                <h5 class="text-white mb-3">Your Albums</h5>
+
+                <div *ngIf="isLoading" class="d-flex justify-content-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+
+                <div class="album-list" *ngIf="!isLoading">
+                    <button type="button" class="album-item" *ngFor="let album of albums"
+                        [class.active]="isAlbumSelected(album)"
+                        (click)="selectAlbum(album)">
+                        <img [src]="resolveAlbumImage(album) || 'assets/images/placeholder-album.png'" alt="cover">
+                        <div class="text-start">
+                            <div class="fw-bold text-truncate">{{ album.title || 'Untitled Album' }}</div>
+                            <small class="text-muted">{{ album.releaseDate || '-' }}</small>
+                        </div>
+                    </button>
+                </div>
+
+                <div *ngIf="!isLoading && albums.length === 0" class="text-muted small">No albums found.</div>
+            </div>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-3 h-100" *ngIf="selectedAlbum">
+                <h5 class="text-white mb-3">Edit Album</h5>
+
+                <div class="mb-3">
+                    <div class="cover-preview mx-auto mb-2">
+                        <img [src]="editCoverPreview || 'assets/images/placeholder-album.png'" alt="Album cover">
+                    </div>
+                    <input type="file" class="form-control custom-input readable-file-input" accept="image/*" (change)="onEditCoverSelected($event)">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Title</label>
+                    <input class="form-control custom-input" [(ngModel)]="editAlbum.title">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Release Date</label>
+                    <input type="date" class="form-control custom-input" [(ngModel)]="editAlbum.releaseDate">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Description</label>
+                    <textarea class="form-control custom-input" rows="2" [(ngModel)]="editAlbum.description"></textarea>
+                </div>
+
+                <div class="d-flex gap-2 mb-3">
+                    <button type="button" class="btn btn-outline-light rounded-pill flex-fill" [disabled]="isSaving" (click)="saveAlbumUpdates()">
+                        Save
+                    </button>
+                    <button type="button" class="btn btn-outline-danger rounded-pill flex-fill" [disabled]="isSaving" (click)="deleteSelectedAlbum()">
+                        Delete
+                    </button>
+                </div>
+
+                <hr class="border-secondary">
+
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h6 class="text-white mb-0">Album Songs</h6>
+                    <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" [disabled]="albumSongs.length === 0"
+                        (click)="playAlbum()">
+                        <i class="bi bi-play-fill me-1"></i>Play Album
+                    </button>
+                </div>
+                <div class="d-flex gap-2 mb-2">
+                    <select class="form-select custom-input" [(ngModel)]="selectedSongIdForAlbum">
+                        <option value="">Select song</option>
+                        <option *ngIf="availableSongsForSelectedAlbum.length === 0" value="" disabled>
+                            No available songs. Upload a new song.
+                        </option>
+                        <option *ngFor="let song of availableSongsForSelectedAlbum" [ngValue]="'' + (song.songId || song.id)">
+                            {{ song.title || ('Song #' + (song.songId || song.id)) }}
+                        </option>
+                    </select>
+                    <button type="button" class="btn btn-outline-light rounded-pill" [disabled]="isSaving || !selectedSongIdForAlbum"
+                        (click)="addSongToAlbum()">
+                        Add
+                    </button>
+                </div>
+
+                <div class="album-song-list">
+                    <div class="album-song-item" *ngFor="let song of albumSongs">
+                        <div class="text-start flex-grow-1 overflow-hidden">
+                            <div class="text-truncate">{{ song.title || ('Song #' + (song.songId || song.id)) }}</div>
+                            <small class="text-muted text-truncate d-block">{{ song.artistName || 'Unknown Artist' }}</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle" (click)="playAlbumSong(song)">
+                                <i class="bi bi-play-fill"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0" (click)="removeSongFromAlbum(song)">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div *ngIf="albumSongs.length === 0" class="text-muted small">No songs mapped in this album yet.</div>
+                </div>
+            </div>
+
+            <div class="card bg-secondary-panel border-0 rounded-4 p-3 h-100 d-flex align-items-center justify-content-center"
+                *ngIf="!selectedAlbum">
+                <div class="text-muted text-center">Select an album to edit, delete, or manage songs.</div>
+            </div>
+        </div>
+    </div>
+</div>

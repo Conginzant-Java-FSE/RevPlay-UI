@@ -1,0 +1,200 @@
+<div class="profile-studio premium-fade-in p-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <h1 class="fw-bold text-white mb-1">Creator Profile Studio</h1>
+            <p class="text-muted mb-0">Manage artist profile, links, and content summary.</p>
+        </div>
+    </div>
+
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-3">{{ error }}</div>
+    <div *ngIf="successMessage" class="alert alert-success bg-dark border-success text-success mb-3">{{ successMessage }}</div>
+
+    <div *ngIf="isLoading" class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+
+    <div *ngIf="!isLoading" class="row g-4">
+        <div class="col-xl-8">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4">
+                <h5 class="text-white mb-3">Artist Profile</h5>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label text-muted small">Profile Image</label>
+                        <div class="creator-profile-image-box">
+                            <div class="creator-profile-image-preview mb-2">
+                                <img *ngIf="profilePictureUrl && !profileImageLoadError"
+                                    [src]="getProfileImagePreviewUrl()"
+                                    (error)="onProfileImageLoadError()"
+                                    alt="Creator profile image">
+                                <div *ngIf="!profilePictureUrl || profileImageLoadError" class="creator-profile-image-empty">
+                                    <i class="bi bi-person-circle"></i>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 align-items-center">
+                                <label class="btn btn-outline-light rounded-pill btn-sm mb-0">
+                                    <input type="file" class="d-none" accept="image/*" (change)="onProfileImageSelected($event)">
+                                    {{ isUploadingProfileImage ? 'Uploading...' : 'Upload Profile Image' }}
+                                </label>
+                                <small class="text-muted" *ngIf="isUploadingProfileImage || profileImageUploadProgress > 0">
+                                    {{ profileImageUploadProgress }}%
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Display Name</label>
+                        <input class="form-control custom-input" [(ngModel)]="profileForm.displayName" maxlength="120">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Artist Type</label>
+                        <select class="form-select custom-input" [(ngModel)]="profileForm.artistType">
+                            <option *ngFor="let type of artistTypes" [ngValue]="type">{{ type }}</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted small">Banner Image</label>
+                        <div class="banner-upload-box">
+                            <div class="banner-preview mb-2">
+                                <img *ngIf="profileForm.bannerImageUrl" [src]="getBannerPreviewUrl()" alt="Artist banner preview">
+                                <div *ngIf="!profileForm.bannerImageUrl" class="banner-empty">
+                                    <i class="bi bi-image"></i>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 align-items-center">
+                                <label class="btn btn-outline-light rounded-pill btn-sm mb-0">
+                                    <input type="file" class="d-none" accept="image/*" (change)="onBannerImageSelected($event)">
+                                    {{ isUploadingBanner ? 'Uploading...' : 'Upload Banner' }}
+                                </label>
+                                <small class="text-muted" *ngIf="isUploadingBanner || bannerUploadProgress > 0">
+                                    {{ bannerUploadProgress }}%
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted small">Bio</label>
+                        <textarea class="form-control custom-input" rows="4" [(ngModel)]="profileForm.bio" maxlength="1000"></textarea>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end mt-3">
+                    <button type="button" class="btn btn-primary rounded-pill px-4 text-dark fw-bold"
+                        [disabled]="isSaving || isUploadingBanner || !profileForm.displayName.trim()" (click)="saveProfile()">
+                        Save Profile
+                    </button>
+                </div>
+                <div *ngIf="error" class="text-danger small mt-2">{{ error }}</div>
+                <div *ngIf="successMessage" class="text-success small mt-2">{{ successMessage }}</div>
+            </div>
+
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4 mt-4">
+                <h5 class="text-white mb-3">Social Links</h5>
+
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">Platform</label>
+                        <select class="form-select custom-input" [(ngModel)]="newLink.platform">
+                            <option *ngFor="let platform of socialPlatforms" [ngValue]="platform">{{ platform }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">URL</label>
+                        <input class="form-control custom-input" [(ngModel)]="newLink.url" maxlength="2048"
+                            placeholder="https://...">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-outline-light rounded-pill w-100" [disabled]="isSaving || !newLink.url.trim()"
+                            (click)="addSocialLink()">
+                            Add
+                        </button>
+                    </div>
+                </div>
+
+                <div class="social-list">
+                    <div class="social-item" *ngFor="let link of socialLinks">
+                        <div *ngIf="editingLinkId !== (link.id || link.linkId)" class="d-flex justify-content-between align-items-center gap-2">
+                            <div>
+                                <div class="text-white small fw-bold">{{ link.platform }}</div>
+                                <a class="small text-info text-truncate d-inline-block" [href]="link.url" target="_blank">{{ link.url }}</a>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill" (click)="startEditLink(link)">Edit</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" (click)="deleteSocialLink(link)">Delete</button>
+                            </div>
+                        </div>
+
+                        <div *ngIf="editingLinkId === (link.id || link.linkId)" class="row g-2">
+                            <div class="col-md-3">
+                                <select class="form-select custom-input" [(ngModel)]="editLink.platform">
+                                    <option *ngFor="let platform of socialPlatforms" [ngValue]="platform">{{ platform }}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <input class="form-control custom-input" [(ngModel)]="editLink.url">
+                            </div>
+                            <div class="col-md-3 d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-pill flex-fill" (click)="saveLinkEdit()">Save</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill flex-fill" (click)="cancelEditLink()">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div *ngIf="socialLinks.length === 0" class="text-muted small py-2">No social links yet.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4 mb-4">
+                <h5 class="text-white mb-3">Content Summary</h5>
+                <div class="summary-grid">
+                    <div class="summary-cell">
+                        <div class="label">Songs</div>
+                        <div class="value">{{ summary?.totalSongs ?? songs.length ?? 0 }}</div>
+                    </div>
+                    <div class="summary-cell">
+                        <div class="label">Albums</div>
+                        <div class="value">{{ summary?.totalAlbums ?? albums.length ?? 0 }}</div>
+                    </div>
+                    <div class="summary-cell">
+                        <div class="label">Podcasts</div>
+                        <div class="value">{{ summary?.totalPodcasts ?? podcasts.length ?? 0 }}</div>
+                    </div>
+                    <div class="summary-cell">
+                        <div class="label">Followers</div>
+                        <div class="value">{{ summary?.totalFollowers ?? 0 }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-secondary-panel border-0 rounded-4 p-3 mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="text-white mb-0">Recent Songs</h6>
+                    <a class="small text-muted" routerLink="/creator-studio/songs">Manage</a>
+                </div>
+                <div class="preview-item" *ngFor="let song of songs | slice:0:5">
+                    <div class="text-truncate">{{ song.title || ('Song #' + (song.songId || song.id)) }}</div>
+                    <small class="text-muted">{{ song.visibility || 'PUBLIC' }}</small>
+                </div>
+                <div *ngIf="songs.length === 0" class="text-muted small">No songs found.</div>
+            </div>
+
+            <div class="card bg-secondary-panel border-0 rounded-4 p-3 mb-3">
+                <h6 class="text-white mb-2">Albums</h6>
+                <div class="preview-item" *ngFor="let album of albums | slice:0:5">
+                    <div class="text-truncate">{{ album.title || ('Album #' + (album.albumId || album.id)) }}</div>
+                </div>
+                <div *ngIf="albums.length === 0" class="text-muted small">No albums found.</div>
+            </div>
+
+            <div class="card bg-secondary-panel border-0 rounded-4 p-3">
+                <h6 class="text-white mb-2">Podcasts</h6>
+                <div class="preview-item" *ngFor="let podcast of podcasts | slice:0:5">
+                    <div class="text-truncate">{{ podcast.title || ('Podcast #' + (podcast.podcastId || podcast.id)) }}</div>
+                </div>
+                <div *ngIf="podcasts.length === 0" class="text-muted small">No podcasts found.</div>
+            </div>
+        </div>
+    </div>
+</div>
