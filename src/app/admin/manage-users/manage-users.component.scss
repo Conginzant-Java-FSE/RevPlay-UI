@@ -1,0 +1,97 @@
+@use '../dashboard/dashboard.component.scss' as *;
+
+.manage-users {
+    min-height: calc(100vh - 80px);
+}
+
+.custom-input {
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--panel-soft-border);
+    width: 100%;
+
+    &:focus {
+        background-color: var(--bg-tertiary);
+        border-color: var(--accent-secondary);
+        box-shadow: 0 0 0 0.2rem rgba(111, 140, 255, 0.22);
+        color: var(--text-primary);
+    }
+
+    &::placeholder {
+        color: var(--text-muted);
+    }
+}
+
+.interactive-panel {
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+
+    &:hover {
+        transform: translateY(-4px);
+        border-color: rgba(243, 181, 107, 0.4);
+        box-shadow: 0 22px 34px rgba(0, 0, 0, 0.42) !important;
+    }
+}
+
+.quick-users-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.65rem;
+}
+
+.quick-user-card {
+    border: 1px solid var(--panel-soft-border-strong);
+    border-radius: 12px;
+    background: var(--panel-soft-bg);
+    color: var(--text-primary);
+    text-align: left;
+    padding: 0.65rem 0.7rem;
+    transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+
+    &:hover {
+        transform: translateY(-2px);
+        border-color: rgba(243, 181, 107, 0.54);
+        background: rgba(243, 181, 107, 0.08);
+    }
+
+    &.active {
+        border-color: rgba(243, 181, 107, 0.72);
+        background: rgba(243, 181, 107, 0.14);
+    }
+
+    .quick-user-title {
+        font-weight: 600;
+        color: var(--panel-soft-value);
+    }
+}
+
+.quick-user-email {
+    color: var(--panel-soft-muted);
+    display: block;
+    margin-top: 0.05rem;
+    margin-bottom: 0.15rem;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.selected-user-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(243, 181, 107, 0.45);
+    background: rgba(243, 181, 107, 0.08);
+    color: var(--text-primary);
+    border-radius: 999px;
+    padding: 0.38rem 0.85rem;
+    font-size: 0.92rem;
+}
+
+.selected-email {
+    color: var(--panel-soft-value);
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+

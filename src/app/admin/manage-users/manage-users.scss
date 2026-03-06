@@ -1,0 +1,112 @@
+@import '../dashboard/dashboard.component.scss';
+
+.manage-users {
+    min-height: calc(100vh - 80px);
+}
+
+.custom-input {
+    background-color: var(--bg-tertiary);
+    border: 1px solid transparent;
+    width: 300px;
+
+    &:focus {
+        background-color: var(--bg-tertiary);
+        border-color: var(--accent-secondary);
+        box-shadow: 0 0 0 0.25rem rgba(111, 140, 255, 0.25);
+        color: white;
+    }
+
+    &::placeholder {
+        color: var(--text-muted);
+    }
+}
+
+.custom-tabs {
+    .nav-link {
+        border-radius: 0;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: var(--text-muted);
+        padding: 0.5rem 1rem 1rem 1rem;
+        font-weight: 500;
+
+        &:hover {
+            border-color: transparent;
+            color: white;
+        }
+
+        &.active {
+            background-color: transparent;
+            border-color: var(--accent-secondary);
+            color: white;
+        }
+
+        &.text-danger:hover {
+            color: #ff4d4d !important;
+        }
+    }
+}
+
+.table-hover>tbody>tr:hover>* {
+    color: inherit;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.btn-primary {
+    background-color: var(--accent-secondary);
+    border-color: var(--accent-secondary);
+
+    &:hover {
+        background-color: #ffd7a6;
+        border-color: #ffd7a6;
+        transform: scale(1.02);
+    }
+}
+
+.dropdown-menu-dark {
+    background-color: var(--bg-tertiary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+
+    .dropdown-item {
+        color: var(--text-primary);
+        padding: 0.5rem 1rem;
+
+        &:hover {
+            background-color: var(--bg-primary);
+        }
+
+        &.text-danger:hover {
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+    }
+}
+
+.custom-pagination {
+    .page-link {
+        background-color: var(--bg-primary);
+        border-color: var(--border-color);
+        color: var(--text-muted);
+
+        &:hover {
+            background-color: var(--bg-tertiary);
+            color: white;
+        }
+    }
+
+    .page-item.active .page-link {
+        background-color: var(--accent-secondary);
+        border-color: var(--accent-secondary);
+        color: #000;
+        font-weight: bold;
+    }
+
+    .page-item.disabled .page-link {
+        background-color: var(--bg-primary);
+        color: #6c757d;
+        opacity: 0.5;
+    }
+}
+
+.hover-white:hover {
+    color: white !important;
+}

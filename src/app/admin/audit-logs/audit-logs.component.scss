@@ -1,0 +1,23 @@
+@use '../manage-users/manage-users.component.scss' as *;
+
+.audit-logs {
+    min-height: calc(100vh - 80px);
+}
+
+.table {
+    th {
+        white-space: nowrap;
+    }
+
+    td {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+}
+
+.custom-input {
+    width: 100%;
+}
+
+
+

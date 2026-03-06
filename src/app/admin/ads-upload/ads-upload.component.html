@@ -1,0 +1,72 @@
+<div class="ads-upload-page p-4 p-lg-5">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="fw-bold text-white mb-1 d-flex align-items-center gap-2">
+                <a routerLink="/admin-studio/dashboard" class="text-white text-decoration-none" aria-label="Back to dashboard">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <span>Ads Upload</span>
+            </h1>
+            <p class="text-muted mb-0">Upload and manage audio advertisements for non-premium playback.</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4">
+                <h5 class="text-white fw-bold mb-3">Upload New Audio Ad</h5>
+
+                <div *ngIf="errorMessage" class="alert alert-danger bg-dark border-danger text-danger mb-3">{{ errorMessage }}</div>
+                <div *ngIf="successMessage" class="alert alert-success bg-dark border-success text-success mb-3">{{ successMessage }}</div>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label text-muted small">Ad Title (optional)</label>
+                        <input class="form-control custom-input" [(ngModel)]="title" maxlength="120" placeholder="Audio ad title">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Duration Seconds (optional)</label>
+                        <input type="number" class="form-control custom-input" [(ngModel)]="durationSeconds" min="1" placeholder="20">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Audio File</label>
+                        <input type="file" class="form-control custom-input" accept="audio/*" (change)="onFileSelected($event)">
+                        <div class="text-muted small mt-1" *ngIf="selectedFileName">{{ selectedFileName }}</div>
+                    </div>
+                </div>
+
+                <div class="mt-4 d-flex align-items-center gap-3">
+                    <button type="button" class="btn btn-primary text-dark fw-bold px-4" [disabled]="isUploading" (click)="uploadAd()">
+                        <span *ngIf="!isUploading">Upload Ad</span>
+                        <span *ngIf="isUploading" class="spinner-border spinner-border-sm" role="status"></span>
+                    </button>
+                    <span class="text-muted small" *ngIf="isUploading">Uploading... {{ uploadProgress }}%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4 h-100">
+                <h5 class="text-white fw-bold mb-3">Current Audio Ad</h5>
+
+                <div *ngIf="isLoading" class="d-flex justify-content-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+
+                <div *ngIf="!isLoading && currentAd; else emptyCurrentAd">
+                    <div class="small text-muted text-uppercase">Title</div>
+                    <div class="text-white mb-3">{{ currentAd?.title || 'Audio Advertisement' }}</div>
+
+                    <div class="small text-muted text-uppercase">Media URL</div>
+                    <div class="text-white text-break mb-3">{{ currentAd?.mediaUrl || '-' }}</div>
+
+                    <div class="small text-muted text-uppercase">Duration</div>
+                    <div class="text-white">{{ currentAd?.durationSeconds || 0 }} sec</div>
+                </div>
+                <ng-template #emptyCurrentAd>
+                    <div class="text-muted">No ad details available right now.</div>
+                </ng-template>
+            </div>
+        </div>
+    </div>
+</div>

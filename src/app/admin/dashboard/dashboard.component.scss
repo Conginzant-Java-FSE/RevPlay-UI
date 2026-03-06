@@ -1,0 +1,108 @@
+.admin-dashboard {
+    color: var(--text-primary);
+    background: var(--admin-dashboard-bg);
+    min-height: 100vh;
+    position: relative;
+    overflow: hidden;
+}
+
+.dashboard-glow {
+    position: absolute;
+    inset: -120px auto auto -120px;
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    background: var(--admin-dashboard-glow);
+    filter: blur(8px);
+    pointer-events: none;
+}
+
+.dashboard-content {
+    position: relative;
+    z-index: 1;
+}
+
+.dashboard-alert {
+    color: var(--admin-dashboard-alert-color);
+    background: var(--admin-dashboard-alert-bg);
+    border: 1px solid var(--admin-dashboard-alert-border);
+    backdrop-filter: blur(4px);
+}
+
+.stat-card {
+    background: var(--admin-dashboard-stat-bg);
+    border: 1px solid var(--admin-dashboard-stat-border) !important;
+    backdrop-filter: blur(6px);
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+
+    &:hover {
+        transform: translateY(-5px) scale(1.01);
+        border-color: var(--admin-dashboard-stat-border-hover) !important;
+        box-shadow: var(--admin-dashboard-stat-shadow-hover) !important;
+    }
+}
+
+.border-accent {
+    border: 1px solid var(--accent-secondary) !important;
+}
+
+.panel-card {
+    background: var(--admin-dashboard-panel-bg);
+    border: 1px solid var(--admin-dashboard-panel-border);
+    backdrop-filter: blur(7px);
+}
+
+.table {
+    background-color: transparent;
+
+    th {
+        border-bottom: 1px solid var(--admin-dashboard-table-head-border) !important;
+        color: var(--admin-dashboard-table-head);
+        padding-bottom: 1rem;
+    }
+
+    td {
+        color: var(--admin-dashboard-table-cell) !important;
+    }
+
+    tr {
+        transition: background-color 0.2s ease;
+
+        &:last-child {
+            border-bottom: none !important;
+        }
+
+        &:hover {
+            background-color: var(--admin-dashboard-row-hover);
+        }
+    }
+}
+
+.admin-mini-table {
+    max-height: 220px;
+    overflow: auto;
+}
+
+.empty-panel {
+    min-height: 170px;
+    border: 1px dashed var(--admin-dashboard-empty-border);
+    border-radius: 16px;
+    display: grid;
+    place-content: center;
+    text-align: center;
+    gap: 0.5rem;
+    color: var(--admin-dashboard-empty-color);
+    background: var(--admin-dashboard-empty-bg);
+
+    i {
+        font-size: 1.3rem;
+    }
+}
+
+.hover-white {
+    transition: color 0.2s ease;
+
+    &:hover {
+        color: var(--text-primary) !important;
+    }
+}

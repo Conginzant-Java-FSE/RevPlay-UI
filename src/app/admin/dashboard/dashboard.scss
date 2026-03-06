@@ -1,0 +1,40 @@
+.admin-dashboard {
+    color: var(--text-primary);
+    background: linear-gradient(180deg, rgba(111, 140, 255, 0.13) 0%, var(--bg-primary) 300px);
+    min-height: 100vh;
+}
+
+.stat-card {
+    &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4) !important;
+    }
+}
+
+.border-accent {
+    border: 1px solid var(--accent-secondary) !important;
+}
+
+.table {
+    background-color: transparent;
+
+    th {
+        border-bottom: 1px solid var(--border-color) !important;
+        padding-bottom: 1rem;
+    }
+
+    tr {
+        &:last-child {
+            border-bottom: none !important;
+        }
+
+        &:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+    }
+}
+
+.admin-mini-table {
+    max-height: 220px;
+    overflow: auto;
+}

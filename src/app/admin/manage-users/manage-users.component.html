@@ -1,0 +1,149 @@
+<div class="manage-users p-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <div class="d-flex align-items-center mb-2">
+                <button class="btn btn-link text-white p-0 me-3" routerLink="/admin-studio/dashboard"><i
+                        class="bi bi-arrow-left fs-4"></i></button>
+                <h1 class="fw-bold m-0 text-white">User Management</h1>
+            </div>
+            <p class="text-muted m-0">Select user quickly, then update status or role.</p>
+        </div>
+    </div>
+
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger shadow-sm mb-4">
+        {{ error }}
+    </div>
+    <div *ngIf="statusMessage" class="alert alert-success bg-dark border-success text-success shadow-sm mb-4">
+        {{ statusMessage }}
+    </div>
+
+    <div class="bg-secondary-panel rounded-4 p-4 shadow-sm mb-4 interactive-panel">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h5 class="text-white fw-bold mb-0">Choose User</h5>
+            <button class="btn btn-sm btn-outline-light rounded-pill px-3" (click)="loadUsers()">
+                <i class="bi bi-arrow-clockwise me-1"></i>Refresh Suggestions
+            </button>
+        </div>
+
+        <div class="row g-3 align-items-end">
+            <div class="col-lg-5">
+                <label class="form-label text-muted small">Search users (name / id)</label>
+                <input type="text" class="form-control custom-input"
+                    [(ngModel)]="userSearch" (ngModelChange)="onUserSearchChange($event)"
+                    placeholder="Search by name or user id">
+            </div>
+            <div class="col-lg-4">
+                <label class="form-label text-muted small">Selected User ID (or manual)</label>
+                <input type="number" class="form-control custom-input"
+                    [(ngModel)]="targetUserId" (ngModelChange)="onUserIdChange()" placeholder="Enter user id">
+            </div>
+            <div class="col-lg-3">
+                <button class="btn btn-outline-light rounded-pill w-100" (click)="clearSelection()">
+                    Clear Selection
+                </button>
+            </div>
+        </div>
+
+        <div class="selected-user-chip mt-3" *ngIf="targetUserId">
+            <i class="bi bi-person-circle me-2"></i>
+            <span>{{ selectedUserLabel || ('User #' + targetUserId) }}</span>
+            <span class="ms-2 text-muted">(ID: {{ targetUserId }})</span>
+            <span class="ms-2 selected-email" *ngIf="selectedUserEmail">| {{ selectedUserEmail }}</span>
+        </div>
+
+        <div *ngIf="isLoading" class="d-flex justify-content-center py-3">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+
+        <div class="quick-users-grid mt-3" *ngIf="!isLoading && filteredUsers.length > 0">
+            <button type="button"
+                class="quick-user-card"
+                [class.active]="targetUserId === user.userId"
+                *ngFor="let user of filteredUsers; trackBy: trackUserById"
+                (click)="selectUser(user)">
+                <div class="quick-user-title">{{ user.label }}</div>
+                <small class="quick-user-email" *ngIf="user.email || hasUsableUsername(user.username)">
+                    {{ user.email || ('@' + user.username) }}
+                </small>
+                <small class="text-muted d-block">ID: {{ user.userId }}</small>
+            </button>
+        </div>
+
+        <div class="text-muted small mt-3" *ngIf="!isLoading && filteredUsers.length === 0">
+            No suggested users found. Enter user id manually.
+        </div>
+    </div>
+
+    <div class="bg-secondary-panel rounded-4 p-4 shadow-sm mb-4 interactive-panel">
+        <h5 class="text-white fw-bold mb-3">Update User Status</h5>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label text-muted small">User</label>
+                <input type="text" class="form-control custom-input"
+                    [value]="selectedUserLabel || (targetUserId ? ('User #' + targetUserId) : 'No user selected')" readonly>
+                <small class="text-muted d-block mt-1" *ngIf="selectedUserEmail">{{ selectedUserEmail }}</small>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label text-muted small">Active</label>
+                <select class="form-select custom-input" [(ngModel)]="targetIsActive">
+                    <option [ngValue]="true">Active</option>
+                    <option [ngValue]="false">Inactive</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-primary rounded-pill px-4 text-dark fw-bold w-100"
+                    [disabled]="!targetUserId" (click)="updateUserStatus()">
+                    Update Status
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-secondary-panel rounded-4 p-4 shadow-sm interactive-panel">
+        <h5 class="text-white fw-bold mb-3">Update User Role</h5>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label text-muted small">User</label>
+                <input type="text" class="form-control custom-input"
+                    [value]="selectedUserLabel || (targetUserId ? ('User #' + targetUserId) : 'No user selected')" readonly>
+                <small class="text-muted d-block mt-1" *ngIf="selectedUserEmail">{{ selectedUserEmail }}</small>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label text-muted small">Role</label>
+                <select class="form-select custom-input" [(ngModel)]="targetRole">
+                    <option value="LISTENER">LISTENER</option>
+                    <option value="ARTIST">ARTIST</option>
+                    <option value="ADMIN">ADMIN</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-primary rounded-pill px-4 text-dark fw-bold w-100"
+                    [disabled]="!targetUserId" (click)="updateUserRole()">
+                    Update Role
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-secondary-panel rounded-4 p-4 shadow-sm interactive-panel mt-4">
+        <h5 class="text-white fw-bold mb-2">Manual Delete User</h5>
+        <p class="text-muted small mb-3">
+            This action is manual only. If hard delete is unavailable, fallback clears likes/history and sets account inactive.
+        </p>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-8">
+                <label class="form-label text-muted small">Selected User</label>
+                <input type="text" class="form-control custom-input"
+                    [value]="selectedUserLabel || (targetUserId ? ('User #' + targetUserId) : 'No user selected')" readonly>
+                <small class="text-muted d-block mt-1" *ngIf="selectedUserEmail">{{ selectedUserEmail }}</small>
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-outline-danger rounded-pill px-4 fw-bold w-100"
+                    [disabled]="!targetUserId || isDeletingUser"
+                    (click)="deleteSelectedUser()">
+                    {{ isDeletingUser ? 'Deleting...' : 'Delete User' }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

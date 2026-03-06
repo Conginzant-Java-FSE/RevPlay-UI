@@ -1,0 +1,73 @@
+<div class="manage-genres p-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <div class="d-flex align-items-center mb-2">
+                <button class="btn btn-link text-white p-0 me-3" routerLink="/admin"><i
+                        class="bi bi-arrow-left fs-4"></i></button>
+                <h1 class="fw-bold m-0 text-white">Manage Genres</h1>
+            </div>
+            <p class="text-muted m-0">Create and modify the music and podcast categories available globally.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <input type="text" [(ngModel)]="newGenreName" class="form-control custom-input rounded-pill px-4"
+                placeholder="New genre name...">
+            <button class="btn btn-primary rounded-pill px-4 py-2 text-dark fw-bold" (click)="addGenre()"
+                [disabled]="!newGenreName.trim() || isCreating">
+                <i class="bi bi-plus-lg me-2"></i> Add Genre
+            </button>
+        </div>
+    </div>
+
+    <div *ngIf="successMessage" class="alert alert-success bg-dark border-success text-success mb-3">
+        {{ successMessage }}
+    </div>
+    <div *ngIf="errorMessage" class="alert alert-danger bg-dark border-danger text-danger mb-3">
+        {{ errorMessage }}
+    </div>
+
+    <div class="card bg-secondary-panel border-0 rounded-4 p-3 mb-4" *ngIf="editingGenreId">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <input class="form-control custom-input rounded-pill px-4 edit-genre-input" [(ngModel)]="editGenreName"
+                maxlength="60" placeholder="Update genre name">
+            <button class="btn btn-primary rounded-pill px-4 text-dark fw-bold" [disabled]="isSaving || !editGenreName.trim()"
+                (click)="saveGenreUpdate()">
+                Save
+            </button>
+            <button class="btn btn-outline-light rounded-pill px-4" [disabled]="isSaving" (click)="cancelEditGenre()">
+                Cancel
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-4 g-4" *ngIf="!isLoading">
+        <div class="col" *ngFor="let genre of genres">
+            <div
+                class="card bg-secondary-panel border-0 h-100 rounded-4 shadow-sm p-4 text-center position-relative group genre-card transition-all">
+
+                <!-- Context Menu (Hover) -->
+                <div class="position-absolute top-0 end-0 p-3 opacity-0 context-menu transition-all">
+                    <button class="btn btn-sm btn-outline-light rounded-circle me-2" (click)="startEditGenre(genre)"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-danger bg-opacity-75 rounded-circle"
+                        (click)="deleteGenre(genre.id || genre.genreId)"><i class="bi bi-trash"></i></button>
+                </div>
+
+                <div class="rounded-circle bg-dark shadow-sm d-flex justify-content-center align-items-center mx-auto mb-3"
+                    style="width: 80px; height: 80px;">
+                    <i class="bi bi-music-note-beamed text-muted fs-3"></i>
+                </div>
+
+                <h5 class="fw-bold text-white mb-1">{{genre.name}}</h5>
+                <div class="text-muted small">{{ genre.trackCount || 0 }} Tracks</div>
+            </div>
+        </div>
+
+        <div *ngIf="genres.length === 0" class="col-12 text-center py-5 text-muted w-100">
+            <p>No genres found.</p>
+        </div>
+    </div>
+</div>
