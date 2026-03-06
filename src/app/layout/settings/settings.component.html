@@ -1,0 +1,27 @@
+<section class="settings-shell">
+    <div class="settings-header">
+        <h1 class="text-white fw-bold mb-1">Settings</h1>
+        <p class="text-muted m-0">Choose the appearance mode for your dashboard.</p>
+    </div>
+
+    <div class="settings-card bg-secondary-panel rounded-4 p-4 mt-4">
+        <h5 class="text-white fw-bold mb-3">Theme</h5>
+        <div class="theme-grid">
+            <button type="button" class="theme-option" [class.active]="(theme$ | async) === 'dark'" (click)="setTheme('dark')">
+                <span class="theme-icon"><i class="bi bi-moon-stars-fill"></i></span>
+                <span class="theme-text">
+                    <span class="theme-title">Dark Mode</span>
+                    <span class="theme-desc">Low-glare visual style for focused viewing.</span>
+                </span>
+            </button>
+
+            <button type="button" class="theme-option" [class.active]="(theme$ | async) === 'light'" (click)="setTheme('light')">
+                <span class="theme-icon"><i class="bi bi-brightness-high-fill"></i></span>
+                <span class="theme-text">
+                    <span class="theme-title">Light Mode</span>
+                    <span class="theme-desc">Bright and clean view for daytime usage.</span>
+                </span>
+            </button>
+        </div>
+    </div>
+</section>

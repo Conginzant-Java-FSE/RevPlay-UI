@@ -1,0 +1,42 @@
+.list-group-item {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.premium-status {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.status-label {
+    font-size: 0.78rem;
+    color: #9aa5bf;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.status-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.plan-card {
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        border-color: rgba(255, 255, 255, 0.32) !important;
+        transform: translateY(-1px);
+    }
+
+    &.active {
+        border-color: var(--accent-secondary) !important;
+        box-shadow: 0 0 0 1px rgba(245, 181, 77, 0.35);
+    }
+}
+
+.plan-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
