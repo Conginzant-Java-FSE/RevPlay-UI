@@ -1,0 +1,41 @@
+<div class="content">
+    <h2 class="title">Podcasts</h2>
+
+    <div *ngIf="isLoading" class="text-muted">Loading podcasts...</div>
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger">{{ error }}</div>
+    <div *ngIf="actionMessage && !isLoading && !error" class="alert alert-success bg-dark border-success text-success">
+        {{ actionMessage }}
+    </div>
+
+    <section *ngIf="!isLoading && !error" class="mb-4">
+        <h3 class="section-title">Popular Podcasts</h3>
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
+            <div class="col" *ngFor="let podcast of popular">
+                <div class="card bg-secondary-panel border-0 p-3 h-100">
+                    <h6 class="mb-1 text-truncate">{{ podcast.title }}</h6>
+                    <p class="small text-muted mb-2">{{ podcast.playCount }} plays</p>
+                    <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                        (click)="togglePodcastFollow(podcast)">
+                        {{ podcast.isFollowed ? 'Unfollow' : 'Follow' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section *ngIf="!isLoading && !error">
+        <h3 class="section-title">Recommended Podcasts</h3>
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
+            <div class="col" *ngFor="let podcast of recommended">
+                <div class="card bg-secondary-panel border-0 p-3 h-100">
+                    <h6 class="mb-1 text-truncate">{{ podcast.title }}</h6>
+                    <p class="small text-muted mb-2 text-truncate">{{ podcast.description || 'Recommended based on your listening' }}</p>
+                    <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                        (click)="togglePodcastFollow(podcast)">
+                        {{ podcast.isFollowed ? 'Unfollow' : 'Follow' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>

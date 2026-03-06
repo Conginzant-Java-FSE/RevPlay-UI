@@ -1,0 +1,83 @@
+.profile-container {
+    color: var(--text-primary);
+}
+
+.profile-image-box {
+    backdrop-filter: blur(6px);
+}
+
+.history-stat-card {
+    background: var(--panel-soft-bg-strong);
+    border: 1px solid var(--panel-soft-border);
+    border-radius: 12px;
+    padding: 0.85rem 0.95rem;
+
+    .label {
+        color: var(--panel-soft-muted);
+        font-size: 0.78rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 0.2rem;
+    }
+
+    .value {
+        color: var(--panel-soft-value);
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+}
+
+.history-panel {
+    background: var(--panel-soft-bg);
+    border: 1px solid var(--panel-soft-border);
+    border-radius: 12px;
+    padding: 0.9rem;
+    min-height: 280px;
+}
+
+.history-list {
+    display: grid;
+    gap: 0.55rem;
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.history-item {
+    border: 1px solid var(--panel-soft-border);
+    background: var(--panel-soft-bg);
+    border-radius: 10px;
+    padding: 0.55rem 0.7rem;
+
+    .title {
+        font-weight: 600;
+        line-height: 1.2;
+    }
+
+    .meta {
+        font-size: 0.82rem;
+    }
+}
+
+.history-table {
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.profile-avatar {
+    width: 192px;
+    height: 192px;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.6) !important;
+}
+
+.playlist-card {
+    border-radius: 8px;
+    cursor: pointer;
+
+    &:hover {
+        background-color: var(--bg-tertiary) !important;
+    }
+}
+
+.transition-all {
+    transition: all 0.3s ease;
+}

@@ -1,0 +1,63 @@
+.genre-page {
+    padding: 0.25rem 0.25rem 1.5rem;
+}
+
+.title {
+    margin-bottom: 0.25rem;
+}
+
+.selected-genre {
+    text-align: right;
+
+    .value {
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+}
+
+.genre-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
+}
+
+.genre-card {
+    border-radius: 14px;
+    border: 1px solid var(--panel-soft-border-strong);
+    background:
+        linear-gradient(155deg, rgba(243, 181, 107, 0.14), rgba(59, 80, 113, 0.2)),
+        var(--theme-dark-surface);
+    min-height: 94px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.8rem 0.85rem;
+    color: var(--text-primary);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+
+    i {
+        color: var(--text-muted);
+        font-size: 1rem;
+    }
+
+    &.active {
+        border-color: rgba(243, 181, 107, 0.78);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.26);
+    }
+
+    &:hover {
+        transform: translateY(-2px);
+        border-color: var(--panel-soft-border-strong);
+    }
+}
+
+.genre-name {
+    font-weight: 700;
+    text-align: left;
+}
+
+.songs-section {
+    border: 1px solid var(--panel-soft-border);
+}
