@@ -1,0 +1,45 @@
+<div class="auth-container d-flex align-items-center justify-content-center min-vh-100">
+    <div class="auth-card p-5 rounded-4 shadow-lg w-100" style="max-width: 450px;">
+        <div class="text-center mb-5">
+            <img class="auth-logo mb-2" src="assets/images/logo.png" alt="RevPlay logo">
+            <p class="text-muted">Music for every moment.</p>
+        </div>
+
+        <h3 class="fw-bold mb-4 text-white">Log In</h3>
+
+        <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-4 small">
+            <i class="bi bi-exclamation-circle-fill me-2"></i>
+            {{ error }}
+        </div>
+
+        <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
+            <div class="mb-3">
+                <label class="form-label text-muted small fw-bold text-uppercase">Username or Email</label>
+                <input type="text" name="usernameOrEmail" class="form-control custom-input"
+                    [(ngModel)]="credentials.usernameOrEmail" required placeholder="Enter your username or email">
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label text-muted small fw-bold text-uppercase">Password</label>
+                <input type="password" name="password" class="form-control custom-input"
+                    [(ngModel)]="credentials.password" required placeholder="Enter your password">
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-bold text-dark mb-4 shadow"
+                [disabled]="!loginForm.form.valid || isLoading">
+                <span *ngIf="!isLoading">LOG IN</span>
+                <span *ngIf="isLoading" class="spinner-border spinner-border-sm" role="status"></span>
+            </button>
+
+            <div class="text-center">
+                <a routerLink="/auth/forgot-password" class="text-muted small text-decoration-none hover-white">Forgot
+                    your password?</a>
+                <hr class="border-secondary my-4">
+                <p class="text-muted mb-0">Don't have an account?
+                    <a routerLink="/auth/register"
+                        class="text-white fw-bold text-decoration-none border-bottom border-white pb-1 ms-1">SIGN UP</a>
+                </p>
+            </div>
+        </form>
+    </div>
+</div>
