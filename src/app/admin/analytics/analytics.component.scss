@@ -1,0 +1,14 @@
+.admin-analytics {
+    color: var(--text-primary);
+}
+
+.chart-shell {
+    position: relative;
+    min-height: 260px;
+}
+
+@media (max-width: 768px) {
+    .chart-shell {
+        min-height: 220px;
+    }
+}

@@ -1,0 +1,103 @@
+<div class="audit-logs p-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <div class="d-flex align-items-center mb-2">
+                <button class="btn btn-link text-white p-0 me-3" routerLink="/admin-studio/dashboard"><i
+                        class="bi bi-arrow-left fs-4"></i></button>
+                <h1 class="fw-bold m-0 text-white">System Audit Logs</h1>
+            </div>
+            <p class="text-muted m-0">Track all administrative, uploading, and system-level actions.</p>
+        </div>
+        <button class="btn btn-outline-light rounded-pill px-4 py-2" (click)="loadLogs()">
+            <i class="bi bi-arrow-clockwise me-2"></i> Refresh
+        </button>
+    </div>
+
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-4">{{ error }}</div>
+
+    <div class="bg-secondary-panel rounded-4 p-4 shadow-sm mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label text-muted small text-uppercase fw-bold">User</label>
+                <input type="text" class="form-control custom-input" [(ngModel)]="filters.user" placeholder="Username or user id">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted small text-uppercase fw-bold">Action</label>
+                <select class="form-select custom-input" [(ngModel)]="filters.action">
+                    <option value="">All Actions</option>
+                    <option *ngFor="let action of actionOptions" [value]="action">{{ action }}</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted small text-uppercase fw-bold">Date</label>
+                <input type="date" class="form-control custom-input" [(ngModel)]="filters.date">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button class="btn btn-outline-light rounded-pill w-100" (click)="applyFilters()">Apply</button>
+                <button class="btn btn-outline-secondary rounded-pill w-100" (click)="clearFilters()">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <div *ngIf="isLoading" class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+
+    <div class="bg-secondary-panel rounded-4 p-4 shadow-sm" *ngIf="!isLoading">
+        <div class="table-responsive">
+            <table class="table table-borderless table-hover text-white align-middle m-0">
+                <thead class="text-muted small text-uppercase">
+                    <tr>
+                        <th scope="col" class="ps-3">User</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Action</th>
+                        <th scope="col">Entity</th>
+                        <th scope="col">Timestamp</th>
+                        <th scope="col">Details</th>
+                    </tr>
+                </thead>
+                <tbody style="font-family: monospace;">
+                    <tr *ngFor="let log of logs" class="border-bottom border-light border-opacity-10 py-3">
+                        <td class="ps-3 py-3 text-white fw-bold small">
+                            <div>{{ log.actorName }}</div>
+                            <small class="text-muted" *ngIf="log.actorId">ID: {{ log.actorId }}</small>
+                        </td>
+                        <td class="py-3 text-muted small">{{ log.actorEmail || '-' }}</td>
+                        <td class="py-3 small">
+                            <span class="badge rounded-pill"
+                                [ngClass]="log.actionType === 'DELETE' ? 'bg-danger bg-opacity-25 text-danger' : (log.actionType === 'UPDATE' ? 'bg-warning bg-opacity-25 text-warning' : (log.actionType === 'UPLOAD' ? 'bg-info bg-opacity-25 text-info' : 'bg-success bg-opacity-25 text-success'))">
+                                {{ log.actionType }}
+                            </span>
+                        </td>
+                        <td class="py-3 text-muted small">{{ log.entityType }}</td>
+                        <td class="py-3 text-muted small">{{ log.timestamp | date:'medium' }}</td>
+                        <td class="py-3 text-muted small text-truncate" style="max-width: 400px;">{{ log.details }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div *ngIf="logs.length === 0" class="text-center py-5 text-muted">
+            <p>No audit logs available.</p>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 gap-3" *ngIf="totalItems > 0">
+            <div class="text-muted small">
+                Showing {{ (currentPage - 1) * pageSize + 1 }} - {{ ((currentPage - 1) * pageSize) + logs.length }} of {{ totalItems }}
+            </div>
+            <nav>
+                <ul class="pagination custom-pagination m-0">
+                    <li class="page-item" [class.disabled]="currentPage === 1">
+                        <button class="page-link" (click)="goToPage(currentPage - 1)">Previous</button>
+                    </li>
+                    <li class="page-item" *ngFor="let p of getPageList()" [class.active]="p === currentPage">
+                        <button class="page-link" (click)="goToPage(p)">{{ p }}</button>
+                    </li>
+                    <li class="page-item" [class.disabled]="currentPage === totalPages">
+                        <button class="page-link" (click)="goToPage(currentPage + 1)">Next</button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
