@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth';
 import { resolveHttpErrorMessage } from '../../core/utils/error-message.util';
+import { finalize } from 'rxjs';
 
 @Component({
   selector: 'app-change-password',
@@ -26,16 +27,19 @@ export class ChangePassword {
   onSubmit(): void {
     if (!this.currentPassword.trim() || !this.newPassword.trim() || !this.confirmNewPassword.trim()) {
       this.error = 'Please fill all required fields.';
+      this.successMessage = null;
       return;
     }
 
     if (!this.isPasswordStrong()) {
       this.error = `Password must be at least ${this.minPasswordLength} characters and include uppercase, lowercase, number, and special character.`;
+      this.successMessage = null;
       return;
     }
 
     if (!this.isPasswordMatch()) {
       this.error = 'Passwords do not match.';
+      this.successMessage = null;
       return;
     }
 
@@ -46,10 +50,20 @@ export class ChangePassword {
     this.authService.changePassword({
       currentPassword: this.currentPassword,
       newPassword: this.newPassword
-    }).subscribe({
-      next: () => {
+    }).pipe(
+      finalize(() => {
         this.isLoading = false;
-        this.successMessage = 'Password changed successfully.';
+      })
+    ).subscribe({
+      next: (response: any) => {
+        this.isLoading = false;
+        if (response && response.success === false) {
+          this.error = this.resolveMessage(response) || 'Password change failed. Please try again.';
+          this.successMessage = null;
+          return;
+        }
+        this.error = null;
+        this.successMessage = this.resolveMessage(response) || 'Password changed successfully.';
         this.currentPassword = '';
         this.newPassword = '';
         this.confirmNewPassword = '';
@@ -59,6 +73,15 @@ export class ChangePassword {
         this.error = resolveHttpErrorMessage(err, '/auth/change-password');
       }
     });
+  }
+
+  private resolveMessage(response: any): string | null {
+    if (typeof response === 'string') {
+      return response.trim() || null;
+    }
+    const candidate = response?.data?.message ?? response?.message ?? response?.data ?? response?.data?.data?.message;
+    const resolved = typeof candidate === 'string' ? candidate.trim() : '';
+    return resolved || null;
   }
 
   isPasswordMatch(): boolean {

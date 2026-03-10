@@ -98,15 +98,50 @@
 
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-3" *ngIf="!isLoading">
             <div class="col" *ngFor="let playlist of (activeTab === 'MY' ? myPlaylists : publicPlaylists)">
-                <button type="button" class="playlist-card card bg-secondary-panel text-start border-0 h-100 p-3 w-100"
-                    (click)="openPlaylist(playlist)">
+                <div class="playlist-card card bg-secondary-panel text-start border-0 h-100 p-3 w-100 position-relative"
+                    role="button" tabindex="0" (click)="openPlaylist(playlist)">
+                    <div class="dropdown playlist-menu">
+                        <button type="button" class="btn btn-sm btn-outline-light rounded-circle" data-bs-toggle="dropdown" aria-expanded="false"
+                            (click)="$event.stopPropagation()">
+                            <i class="bi bi-three-dots"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow" (click)="$event.stopPropagation()">
+                            <li><button type="button" class="dropdown-item" (click)="openPlaylist(playlist)">Open playlist</button></li>
+                            <li *ngIf="!isPlaylistOwner(playlist)">
+                                <button type="button" class="dropdown-item" (click)="toggleFollowPlaylistFromCard(playlist)">
+                                    {{ resolvePlaylistFollowState(playlist) ? 'Unfollow playlist' : 'Follow playlist' }}
+                                </button>
+                            </li>
+                            <li *ngIf="isPlaylistOwner(playlist)">
+                                <button type="button" class="dropdown-item text-danger" (click)="deletePlaylistFromCard(playlist)">
+                                    Delete playlist
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
                     <div class="ratio ratio-1x1 bg-dark rounded mb-3 overflow-hidden">
-                        <img src="assets/images/placeholder-playlist.png" class="img-fluid object-fit-cover h-100 w-100">
+                        <ng-container *ngIf="playlist.collageSongs?.length; else playlistFallbackCover">
+                            <div class="playlist-collage" [ngClass]="{
+                                'cover-1': playlist.collageSongs.length === 1,
+                                'cover-2': playlist.collageSongs.length === 2,
+                                'cover-3': playlist.collageSongs.length === 3,
+                                'cover-4': playlist.collageSongs.length >= 4
+                            }">
+                                <img *ngFor="let song of (playlist.collageSongs | slice:0:4); let i = index"
+                                    [src]="((($any(song).coverImage) | protectedMedia | async) || 'assets/images/placeholder-playlist.png')"
+                                    [ngClass]="['collage-tile', 'tile-' + i]"
+                                    alt="Playlist cover">
+                            </div>
+                        </ng-container>
+                        <ng-template #playlistFallbackCover>
+                            <img [src]="(((playlist.coverImageUrl || playlist.imageUrl || playlist.coverUrl) | protectedMedia | async) || 'assets/images/placeholder-playlist.png')"
+                                class="img-fluid object-fit-cover h-100 w-100" alt="Playlist cover">
+                        </ng-template>
                     </div>
                     <h6 class="mb-1 text-truncate">{{ playlist.name }}</h6>
                     <p class="text-muted small mb-1 text-truncate">{{ playlist.description || 'No description' }}</p>
                     <span class="text-muted small">{{ playlist.songCount || 0 }} songs</span>
-                </button>
+                </div>
             </div>
             <div class="col-12 text-muted py-4" *ngIf="(activeTab === 'MY' ? myPlaylists.length : publicPlaylists.length) === 0">
                 No playlists found.
@@ -130,14 +165,35 @@
 
     <div *ngIf="selectedPlaylist">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
-            <div>
-                <button class="btn btn-link text-white p-0 mb-2" type="button" (click)="backToLibrary()">
-                    <i class="bi bi-arrow-left me-2"></i>Back to Library
-                </button>
-                <h2 class="fw-bold mb-1">{{ selectedPlaylist.name }}</h2>
-                <p class="text-muted mb-1">{{ selectedPlaylist.description || 'No description' }}</p>
-                <div class="text-muted small">
-                    {{ playlistSongsDetailed.length }} songs | {{ selectedPlaylist.followerCount || 0 }} followers
+            <div class="d-flex flex-wrap align-items-start gap-3">
+                <div class="ratio ratio-1x1 playlist-cover-square bg-dark rounded overflow-hidden">
+                    <ng-container *ngIf="selectedPlaylistCollageSongs.length > 0; else selectedPlaylistFallbackCover">
+                        <div class="playlist-collage" [ngClass]="{
+                            'cover-1': selectedPlaylistCollageSongs.length === 1,
+                            'cover-2': selectedPlaylistCollageSongs.length === 2,
+                            'cover-3': selectedPlaylistCollageSongs.length === 3,
+                            'cover-4': selectedPlaylistCollageSongs.length >= 4
+                        }">
+                            <img *ngFor="let song of (selectedPlaylistCollageSongs | slice:0:4); let i = index"
+                                [src]="((($any(song).coverImage) | protectedMedia | async) || 'assets/images/placeholder-playlist.png')"
+                                [ngClass]="['collage-tile', 'tile-' + i]"
+                                alt="Playlist cover">
+                        </div>
+                    </ng-container>
+                    <ng-template #selectedPlaylistFallbackCover>
+                        <img [src]="(((selectedPlaylist.coverImageUrl || selectedPlaylist.imageUrl || selectedPlaylist.coverUrl) | protectedMedia | async) || 'assets/images/placeholder-playlist.png')"
+                            class="img-fluid object-fit-cover h-100 w-100" alt="Playlist cover">
+                    </ng-template>
+                </div>
+                <div>
+                    <button class="btn btn-link text-white p-0 mb-2" type="button" (click)="backToLibrary()">
+                        <i class="bi bi-arrow-left me-2"></i>Back to Library
+                    </button>
+                    <h2 class="fw-bold mb-1">{{ selectedPlaylist.name }}</h2>
+                    <p class="text-muted mb-1">{{ selectedPlaylist.description || 'No description' }}</p>
+                    <div class="text-muted small">
+                        {{ playlistSongsDetailed.length }} songs | {{ selectedPlaylist.followerCount || 0 }} followers
+                    </div>
                 </div>
             </div>
 
@@ -285,9 +341,13 @@
                                         <i class="bi bi-three-dots"></i>
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow">
-                                        <li><button type="button" class="dropdown-item" (click)="addSongToLikedSongs(song)">Add to liked songs</button></li>
-                                        <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
-                                        <li><button type="button" class="dropdown-item" (click)="hideSongInThisPlaylist(song)">Hide in this playlist</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
+                                        <li *ngIf="isOwner && !isSongInCurrentPlaylist(song)">
+                                            <button type="button" class="dropdown-item" (click)="addSongToPlaylist(song)">Add to playlist</button>
+                                        </li>
+                                        <li *ngIf="isOwner && isSongInCurrentPlaylist(song)">
+                                            <button type="button" class="dropdown-item" (click)="removeSongFromPlaylist(song)">Remove from playlist</button>
+                                        </li>
                                         <li><button type="button" class="dropdown-item" (click)="addTrackToQueue(song)">Add to queue</button></li>
                                         <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
                                         <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
@@ -305,3 +365,6 @@
         </div>
     </div>
 </div>
+
+
+

@@ -71,9 +71,15 @@ export class ApiService {
     );
   }
 
-  postMultipart<T>(path: string, formData: FormData): Observable<any> {
+  postRaw<T>(path: string, body: any): Observable<T> {
+    this.invalidateGetCache();
+    return this.http.post<T>(`${this.baseUrl}${path}`, body);
+  }
+
+  postMultipart<T>(path: string, formData: FormData, params: HttpParams = new HttpParams()): Observable<any> {
     this.invalidateGetCache();
     return this.http.post<T>(`${this.baseUrl}${path}`, formData, {
+      params,
       reportProgress: true,
       observe: 'events'
     });

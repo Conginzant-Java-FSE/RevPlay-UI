@@ -43,6 +43,7 @@ export class UploadSongComponent implements OnInit {
 
   coverImagePreview: string | null = null;
   audioFileName = '';
+  replaceAudioFileName = '';
   audioDurationSeconds = 180;
 
   isDraggingCover = false;
@@ -72,6 +73,11 @@ export class UploadSongComponent implements OnInit {
   ngOnInit(): void {
     this.loadGenres();
     this.bootstrapArtistContext();
+  }
+
+  get canReplaceAudio(): boolean {
+    const songId = Number(this.replaceTargetSongId || this.uploadedSongId || 0);
+    return !this.isReplacingAudio && songId > 0 && !!this.getReplacementAudioFile();
   }
 
   onCoverDragOver(event: DragEvent): void {
@@ -135,7 +141,16 @@ export class UploadSongComponent implements OnInit {
       return;
     }
 
+    const isAudio = file.type.startsWith('audio/') || file.name.toLowerCase().endsWith('.mp3');
+    if (!isAudio) {
+      this.error = 'Please select a valid replacement audio file.';
+      this.cdr.markForCheck();
+      return;
+    }
+
     this.replaceAudioFile = file;
+    this.replaceAudioFileName = file.name;
+    this.clearMessages();
     this.cdr.markForCheck();
   }
 
@@ -197,12 +212,13 @@ export class UploadSongComponent implements OnInit {
 
   replaceAudio(): void {
     const songId = Number(this.replaceTargetSongId || this.uploadedSongId || 0);
+    const replacementFile = this.getReplacementAudioFile();
     if (!songId) {
       this.error = 'Please select a song.';
       this.cdr.markForCheck();
       return;
     }
-    if (!this.replaceAudioFile) {
+    if (!replacementFile) {
       this.error = 'Select a replacement audio file first.';
       this.cdr.markForCheck();
       return;
@@ -212,7 +228,7 @@ export class UploadSongComponent implements OnInit {
     this.isReplacingAudio = true;
     this.replaceAudioProgress = 0;
 
-    this.artistService.replaceSongAudio(songId, this.replaceAudioFile).subscribe({
+    this.artistService.replaceSongAudio(songId, replacementFile).subscribe({
       next: (event: any) => {
         if (event.type === HttpEventType.UploadProgress && event.total) {
           this.replaceAudioProgress = Math.round((event.loaded / event.total) * 100);
@@ -221,15 +237,22 @@ export class UploadSongComponent implements OnInit {
         }
 
         if (event.type === HttpEventType.Response) {
+          const uploadedSong = this.artistService.resolveUploadedSongPayload(event);
           this.isReplacingAudio = false;
           this.replaceAudioProgress = 100;
           this.successMessage = 'Song audio replaced successfully.';
+          this.cacheRecentUpload(songId, uploadedSong);
+          this.replaceAudioFile = null;
+          this.replaceAudioFileName = '';
+          this.audioFile = null;
+          this.audioFileName = '';
+          this.loadSongsForReplace();
           this.cdr.markForCheck();
         }
       },
-      error: () => {
+      error: (err) => {
         this.isReplacingAudio = false;
-        this.error = 'Failed to replace song audio.';
+        this.error = this.extractUploadErrorMessage(err, 'Failed to replace song audio.');
         this.cdr.markForCheck();
       }
     });
@@ -273,7 +296,8 @@ export class UploadSongComponent implements OnInit {
         }
 
         if (event.type === HttpEventType.Response) {
-          const songId = Number(event?.body?.data?.songId ?? event?.body?.songId ?? 0);
+          const uploadedSong = this.artistService.resolveUploadedSongPayload(event);
+          const songId = Number(uploadedSong?.songId ?? uploadedSong?.id ?? event?.body?.data?.songId ?? event?.body?.songId ?? 0);
           if (!songId) {
             this.isUploading = false;
             this.error = 'Song upload response is missing song id.';
@@ -282,7 +306,7 @@ export class UploadSongComponent implements OnInit {
           }
 
           this.artistService.cacheSongImage(songId, resolvedCoverImage || this.coverImagePreview || '');
-          this.cacheRecentUpload(songId);
+          this.cacheRecentUpload(songId, uploadedSong);
           this.uploadedSongId = songId;
           this.replaceTargetSongId = String(songId);
           this.uploadProgress = 100;
@@ -474,6 +498,10 @@ export class UploadSongComponent implements OnInit {
     this.successMessage = null;
   }
 
+  private getReplacementAudioFile(): File | null {
+    return this.replaceAudioFile ?? this.audioFile;
+  }
+
   private getStoredUser(): any | null {
     const rawUser = localStorage.getItem('revplay_user');
     if (!rawUser) {
@@ -524,20 +552,46 @@ export class UploadSongComponent implements OnInit {
     return '';
   }
 
-  private cacheRecentUpload(songId: number): void {
+  private cacheRecentUpload(songId: number, uploadedSong: any = null): void {
     const user = this.authService.getCurrentUserSnapshot() ?? this.getStoredUser();
     const userId = Number(user?.userId ?? user?.id ?? 0);
     if (userId <= 0 || songId <= 0) {
       return;
     }
 
+    const resolvedSong = uploadedSong && typeof uploadedSong === 'object' ? uploadedSong : null;
+    const resolvedFileName = String(
+      resolvedSong?.fileName ??
+      resolvedSong?.audioFileName ??
+      ''
+    ).trim();
+    const resolvedFileUrl = String(
+      resolvedSong?.fileUrl ??
+      resolvedSong?.audioUrl ??
+      ''
+    ).trim();
+    const resolvedStreamUrl = String(resolvedSong?.streamUrl ?? '').trim();
+    const resolvedImageUrl = String(
+      resolvedSong?.imageUrl ??
+      resolvedSong?.coverImageUrl ??
+      resolvedSong?.coverArtUrl ??
+      this.uploadedCoverImageUrl ??
+      this.coverImagePreview ??
+      ''
+    ).trim();
+
     const nextUpload = {
       songId,
       id: songId,
-      title: String(this.songForm.title ?? '').trim() || `Song #${songId}`,
-      artistName: this.artistDisplayName || this.songForm.artist || this.resolveUserDisplayName(user) || 'Artist',
+      title: String(resolvedSong?.title ?? this.songForm.title ?? '').trim() || `Song #${songId}`,
+      artistName: String(resolvedSong?.artistName ?? '').trim() || this.artistDisplayName || this.songForm.artist || this.resolveUserDisplayName(user) || 'Artist',
+      fileName: resolvedFileName,
+      audioFileName: resolvedFileName,
+      fileUrl: resolvedFileUrl,
+      audioUrl: resolvedFileUrl,
+      streamUrl: resolvedStreamUrl,
       playCount: 0,
-      imageUrl: this.uploadedCoverImageUrl || this.coverImagePreview || '',
+      imageUrl: resolvedImageUrl,
       createdAt: new Date().toISOString()
     };
 
@@ -580,10 +634,35 @@ export class UploadSongComponent implements OnInit {
         this.cdr.markForCheck();
       },
       error: () => {
-        this.replaceSongOptions = [];
+        this.replaceSongOptions = this.getCachedRecentUploads()
+          .map((song: any) => ({
+            id: Number(song?.songId ?? song?.id ?? 0),
+            title: String(song?.title ?? '').trim() || `Song #${Number(song?.songId ?? song?.id ?? 0)}`,
+            visibility: String(song?.visibility ?? 'PUBLIC').toUpperCase()
+          }))
+          .filter((song: any) => Number(song?.id ?? 0) > 0);
         this.cdr.markForCheck();
       }
     });
+  }
+
+  private getCachedRecentUploads(): any[] {
+    const user = this.authService.getCurrentUserSnapshot() ?? this.getStoredUser();
+    const userId = Number(user?.userId ?? user?.id ?? 0);
+    if (userId <= 0) {
+      return [];
+    }
+
+    try {
+      const raw = localStorage.getItem(this.recentUploadsCacheKey);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed?.[String(userId)]) ? parsed[String(userId)] : [];
+    } catch {
+      return [];
+    }
   }
 
   private extractUploadErrorMessage(err: any, fallback: string): string {

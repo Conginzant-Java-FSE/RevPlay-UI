@@ -26,7 +26,7 @@
                         [class.active]="(selectedSong?.songId || selectedSong?.id) === (song?.songId || song?.id)"
                         (click)="selectSong(song)">
                         <div class="text-start song-main">
-                            <img [src]="song.imageUrl || '/assets/images/placeholder-album.png'" (error)="onSongImageError($event)"
+                            <img [src]="((song.imageUrl | protectedMedia | async) || '/assets/images/placeholder-album.png')" (error)="onSongImageError($event)"
                                 alt="Song cover" class="song-thumb" loading="lazy">
                             <div class="song-text">
                                 <div class="title text-truncate">{{ song.title || ('Song #' + (song.songId || song.id)) }}</div>

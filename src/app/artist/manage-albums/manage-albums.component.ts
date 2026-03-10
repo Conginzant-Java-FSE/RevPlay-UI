@@ -314,15 +314,7 @@ export class ManageAlbumsComponent implements OnInit {
       next: () => {
         this.ensureSongMappedToAlbum(songId, albumId, () => {
           this.updateLocalAlbumSongMap(albumId, songId, true);
-          this.isSaving = false;
-          this.successMessage = 'Song added to album.';
-          const added = (this.songs ?? []).find((song: any) => this.getSongId(song) === songId);
-          if (added && !(this.albumSongs ?? []).some((song: any) => this.getSongId(song) === songId)) {
-            this.albumSongs = this.mapAlbumSongs([...(this.albumSongs ?? []), { ...added, albumId }]);
-          }
-          this.selectedSongIdForAlbum = '';
-          setTimeout(() => this.reloadSelectedAlbum(), 250);
-          this.cdr.markForCheck();
+          this.refreshSelectedAlbumSongs(albumId, songId);
         });
       },
       error: (err: any) => {
@@ -481,6 +473,37 @@ export class ManageAlbumsComponent implements OnInit {
     }
     this.selectAlbum(this.selectedAlbum, fetchDetails);
     this.loadAlbumsAndSongs();
+  }
+
+  private refreshSelectedAlbumSongs(albumId: number, songId: number): void {
+    this.artistService.getAlbum(albumId).subscribe({
+      next: (albumDetail) => {
+        if (this.selectedAlbumId !== albumId) {
+          return;
+        }
+
+        this.selectedAlbum = albumDetail;
+        this.albumSongs = this.mapAlbumSongs(
+          albumDetail?.songs ?? this.getFallbackAlbumSongs(albumDetail, albumId)
+        );
+        this.isSaving = false;
+        this.successMessage = 'Song added to album.';
+        this.selectedSongIdForAlbum = '';
+        this.loadAlbumsAndSongs();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        const added = (this.songs ?? []).find((song: any) => this.getSongId(song) === songId);
+        if (added && !(this.albumSongs ?? []).some((song: any) => this.getSongId(song) === songId)) {
+          this.albumSongs = this.mapAlbumSongs([...(this.albumSongs ?? []), { ...added, albumId }]);
+        }
+        this.isSaving = false;
+        this.successMessage = 'Song added to album.';
+        this.selectedSongIdForAlbum = '';
+        this.reloadSelectedAlbum();
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   private clearMessages(): void {

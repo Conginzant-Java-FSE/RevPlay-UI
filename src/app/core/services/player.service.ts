@@ -1,11 +1,14 @@
 import { Injectable, NgZone } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, Subject, forkJoin, from, of } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, forkJoin, from, of, throwError } from 'rxjs';
 import { catchError, concatMap, finalize, map, switchMap, toArray } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { ApiService } from './api';
-import { hasRole } from '../utils/role.util';
+import { hasAnyRole } from '../utils/role.util';
 import { PremiumService } from './premium.service';
+import { ArtistService } from './artist.service';
+import { AdService, RevPlayAd } from './ad.service';
+import { AdAnalyticsService } from './ad-analytics.service';
 
 export interface PlayerState {
     currentItem: any | null;
@@ -37,14 +40,22 @@ export class PlayerService {
     private mutedVolume = 50;
     private playbackRequestVersion = 0;
     private activeObjectUrl: string | null = null;
+    private autoplayApiBlocked = false;
+    private autoplayCycleTracks: any[] = [];
+    private autoplayCycleCursor = -1;
     private queueApiBlocked = false;
     private localQueueIdSeed = -1;
     private progressTicker: ReturnType<typeof setInterval> | null = null;
     private startupFallbackTimer: ReturnType<typeof setTimeout> | null = null;
     private pendingResumeTime: number | null = null;
     private lastPlaybackPersistedAt = 0;
-    private readonly adFrequency = 3;
+    private nextAdSongCheckpoint = this.generateNextAdSongCheckpoint(0);
     private resumeAfterAdAction: (() => void) | null = null;
+    private pendingMusicFadeIn = false;
+    private lastPlaybackWasAd = false;
+    private pendingSkipAfterAdTracking = false;
+    private activeAdContext: RevPlayAd | null = null;
+    private lastCompletedAdContext: RevPlayAd | null = null;
 
     private initialState: PlayerState = {
         currentItem: null,
@@ -74,7 +85,10 @@ export class PlayerService {
         private apiService: ApiService,
         private http: HttpClient,
         private ngZone: NgZone,
-        private premiumService: PremiumService
+        private premiumService: PremiumService,
+        private artistService: ArtistService,
+        private adService: AdService,
+        private adAnalyticsService: AdAnalyticsService
     ) {
         this.audio.preload = 'auto';
         this.initAudioListeners();
@@ -162,13 +176,33 @@ export class PlayerService {
             if (!queueTracks) {
                 return;
             }
+            const activeQueueTracks = this.filterInactiveTracks(queueTracks);
             const state = this.getState();
+            const isCurrentInactive = this.isInactiveTrack(state.currentItem);
             const currentTrackId = this.getTrackId(state.currentItem);
-            const nextIndex = queueTracks.findIndex((item) => this.getTrackId(item) === currentTrackId);
+            const nextIndex = activeQueueTracks.findIndex((item) => this.getTrackId(item) === currentTrackId);
             this.updateState({
-                queue: queueTracks,
-                currentIndex: nextIndex >= 0 ? nextIndex : state.currentIndex
+                queue: activeQueueTracks,
+                currentIndex: nextIndex >= 0 ? nextIndex : (isCurrentInactive ? -1 : state.currentIndex)
             });
+            if (!isCurrentInactive) {
+                return;
+            }
+            if (activeQueueTracks.length === 0) {
+                this.audio.pause();
+                this.audio.currentTime = 0;
+                this.updateState({
+                    currentItem: null,
+                    currentIndex: -1,
+                    isPlaying: false,
+                    isLoading: false,
+                    currentTime: 0,
+                    duration: 0,
+                    bufferedPercent: 0
+                });
+                return;
+            }
+            this.playNextLocal();
         });
     }
 
@@ -247,6 +281,17 @@ export class PlayerService {
         if (!state.currentItem) {
             return;
         }
+        if (this.isInactiveTrack(state.currentItem)) {
+            const activeQueue = this.filterInactiveTracks(state.queue);
+            this.updateState({
+                queue: activeQueue,
+                currentIndex: -1
+            });
+            if (activeQueue.length > 0) {
+                this.playNextLocal();
+            }
+            return;
+        }
 
         if (state.isPlaying) {
             this.audio.pause();
@@ -269,9 +314,7 @@ export class PlayerService {
         if (this.getState().isAdPlaying) {
             return;
         }
-        if (this.navigateUsingQueueEndpoint('next')) {
-            return;
-        }
+        this.trackSkipAfterAd();
         this.playNextLocal();
     }
 
@@ -287,6 +330,7 @@ export class PlayerService {
         if (this.navigateUsingQueueEndpoint('previous')) {
             return;
         }
+        this.trackSkipAfterAd();
         this.playPreviousLocal();
     }
 
@@ -336,6 +380,53 @@ export class PlayerService {
         this.updateState({
             autoplayEnabled: !state.autoplayEnabled,
             autoplayMessage: null
+        });
+    }
+
+    stop(): void {
+        this.clearStartupFallbackTimer();
+        this.stopProgressTicker();
+        this.audio.pause();
+        this.audio.currentTime = 0;
+        this.clearObjectUrl();
+        this.pendingResumeTime = null;
+        this.updateState({
+            isPlaying: false,
+            isLoading: false,
+            currentTime: 0,
+            duration: 0,
+            bufferedPercent: 0,
+            isAdPlaying: false
+        });
+    }
+
+    clearQueue(): void {
+        this.updateState({
+            queue: [],
+            currentIndex: -1
+        });
+    }
+
+    reset(preserveLastPlayback = false): void {
+        this.stop();
+        this.autoplayCycleTracks = [];
+        this.autoplayCycleCursor = -1;
+        this.resumeAfterAdAction = null;
+        this.pendingMusicFadeIn = false;
+        this.lastPlaybackWasAd = false;
+        this.pendingSkipAfterAdTracking = false;
+        this.activeAdContext = null;
+        this.lastCompletedAdContext = null;
+        this.nextAdSongCheckpoint = this.generateNextAdSongCheckpoint(0);
+        if (!preserveLastPlayback) {
+            const userId = this.getCurrentUserId() ?? 0;
+            localStorage.removeItem(this.resolvePlaybackStorageKey(userId));
+            localStorage.removeItem(this.LAST_PLAYBACK_KEY);
+        }
+        this.updateState({
+            ...this.initialState,
+            volume: this.getState().volume,
+            autoplayEnabled: this.getState().autoplayEnabled
         });
     }
 
@@ -406,21 +497,7 @@ export class PlayerService {
             this.clearStartupFallbackTimer();
             this.stopProgressTicker();
             this.updatePlaybackProgress();
-            const state = this.getState();
-            if (state.isAdPlaying) {
-                this.handleAdEnded();
-                return;
-            }
-            if (state.repeatMode === 'ONE') {
-                this.audio.currentTime = 0;
-                this.audio.play().catch(() => { });
-                return;
-            }
-            if (this.shouldInsertAdBeforeNextSong(state)) {
-                this.playAdvertisementBetweenSongs(() => this.playAutoplayRecommendation());
-                return;
-            }
-            this.playAutoplayRecommendation();
+            this.handleSongEnd();
         });
 
         this.audio.addEventListener('playing', () => {
@@ -470,9 +547,40 @@ export class PlayerService {
         syncQueue: boolean,
         trackHistory: boolean
     ): void {
+        const activeQueue = this.filterInactiveTracks(queue);
         const safeIndex = currentIndex >= 0 ? currentIndex : 0;
         const trackFromQueue = queue[safeIndex] ?? null;
         const effectiveTrack = this.mergeTrackData(track, trackFromQueue);
+        const activeQueueIndex = activeQueue.findIndex((item) => this.getTrackId(item) === this.getTrackId(effectiveTrack));
+        if (!effectiveTrack?.isAutoplay) {
+            this.autoplayCycleTracks = [];
+            this.autoplayCycleCursor = -1;
+        }
+        if (this.isInactiveTrack(effectiveTrack)) {
+            this.updateState({
+                queue: activeQueue,
+                currentIndex: -1
+            });
+            if (activeQueue.length > 0) {
+                this.playNextLocal();
+                return;
+            }
+            this.stopProgressTicker();
+            this.clearStartupFallbackTimer();
+            this.audio.pause();
+            this.audio.currentTime = 0;
+            this.updateState({
+                currentItem: null,
+                queue: [],
+                currentIndex: -1,
+                isLoading: false,
+                isPlaying: false,
+                currentTime: 0,
+                duration: 0,
+                bufferedPercent: 0
+            });
+            return;
+        }
         const sourceUrl = this.resolveAudioUrl(effectiveTrack);
         if (!sourceUrl) {
             this.stopProgressTicker();
@@ -512,10 +620,13 @@ export class PlayerService {
         const knownDuration = this.resolveKnownDuration(effectiveTrack);
         const shouldIncreaseCount = this.shouldIncreaseSongsPlayedCount(effectiveTrack);
         const nextSongsPlayedCount = shouldIncreaseCount ? state.songsPlayedCount + 1 : state.songsPlayedCount;
+        const targetVolume = Math.max(0, Math.min(1, Number(state.volume ?? 50) / 100));
+        const shouldFadeIn = this.pendingMusicFadeIn && !state.isAdPlaying;
+        this.pendingMusicFadeIn = false;
         this.updateState({
             currentItem: effectiveTrack,
-            queue,
-            currentIndex: safeIndex,
+            queue: activeQueue,
+            currentIndex: activeQueueIndex >= 0 ? activeQueueIndex : safeIndex,
             duration: knownDuration,
             currentTime: 0,
             bufferedPercent: 0,
@@ -529,9 +640,17 @@ export class PlayerService {
                     return;
                 }
                 this.applyAudioSource(playableSourceUrl);
+                this.audio.volume = shouldFadeIn ? 0 : targetVolume;
                 this.scheduleStartupFallback(requestVersion, playableSourceUrl);
                 this.updateState({ isPlaying: true });
-                this.audio.play().catch(() => {
+                const playRequest = this.audio.play();
+                playRequest.then(() => {
+                    if (!shouldFadeIn || requestVersion !== this.playbackRequestVersion) {
+                        this.audio.volume = targetVolume;
+                        return;
+                    }
+                    this.adService.fadeInMusic(this.audio, targetVolume).subscribe();
+                }).catch(() => {
                     if (requestVersion === this.playbackRequestVersion) {
                         this.clearStartupFallbackTimer();
                         this.stopProgressTicker();
@@ -552,8 +671,11 @@ export class PlayerService {
             this.trackPlayHistory(effectiveTrack);
         }
 
+        this.lastPlaybackWasAd = false;
+        this.activeAdContext = null;
+
         if (syncQueue) {
-            this.syncQueueWithBackend(queue, this.getTrackId(effectiveTrack));
+            this.syncQueueWithBackend(activeQueue, this.getTrackId(effectiveTrack));
         }
     }
 
@@ -665,9 +787,24 @@ export class PlayerService {
     private playQueueResponseItem(queueItem: any, direction: 'next' | 'previous'): void {
         const state = this.getState();
         const queueId = Number(queueItem?.queueId ?? 0);
+        const currentQueueId = Number(state.currentItem?.queueId ?? 0);
+        const responseSongId = Number(queueItem?.songId ?? queueItem?.id ?? 0);
+        const currentSongId = Number(state.currentItem?.songId ?? state.currentItem?.id ?? 0);
+
+        if (
+            direction === 'next' &&
+            (
+                (queueId > 0 && currentQueueId > 0 && queueId === currentQueueId) ||
+                (responseSongId > 0 && currentSongId > 0 && responseSongId === currentSongId)
+            )
+        ) {
+            this.playNextLocal();
+            return;
+        }
+
         const existingIndex = state.queue.findIndex((item) => Number(item?.queueId ?? 0) === queueId);
         if (existingIndex >= 0) {
-            this.playResolvedTrack(state.queue[existingIndex], state.queue, existingIndex, false, true);
+            this.playQueueTrackAtIndex(state.queue, existingIndex, true);
             return;
         }
 
@@ -707,6 +844,9 @@ export class PlayerService {
     private playNextLocal(): void {
         const state = this.getState();
         if (state.queue.length === 0) {
+            if (state.currentItem) {
+                this.playAutoplayRecommendation();
+            }
             return;
         }
 
@@ -717,14 +857,39 @@ export class PlayerService {
             if (state.repeatMode === 'ALL') {
                 nextIndex = 0;
             } else {
-                this.audio.pause();
-                this.audio.currentTime = 0;
-                this.updateState({ isPlaying: false });
+                this.playAutoplayRecommendation();
                 return;
             }
         }
 
-        this.playResolvedTrack(state.queue[nextIndex], state.queue, nextIndex, false, true);
+        this.playQueueTrackAtIndex(state.queue, nextIndex, true);
+    }
+
+    private handleSongEnd(): void {
+        const state = this.getState();
+        if (state.isAdPlaying) {
+            this.handleAdEnded();
+            return;
+        }
+
+        if (state.repeatMode === 'ONE') {
+            this.audio.currentTime = 0;
+            this.audio.play().catch(() => { });
+            return;
+        }
+
+        if (this.shouldInsertAdBeforeNextSong(state)) {
+            this.playAdvertisementBetweenSongs(() => this.playNextLocal());
+            return;
+        }
+
+        const isLastSong = state.currentIndex >= state.queue.length - 1;
+        if (isLastSong) {
+            this.playAutoplayRecommendation();
+            return;
+        }
+
+        this.playNextLocal();
     }
 
     private playAutoplayRecommendation(): void {
@@ -732,44 +897,138 @@ export class PlayerService {
         const userId = this.getCurrentUserId();
         const currentSongId = Number(state.currentItem?.songId ?? state.currentItem?.id ?? 0);
 
-        if (this.tryPlayDifferentTrackFromQueue(state)) {
+        if (this.tryPlayUpcomingTrackFromQueue(state)) {
             this.updateState({ autoplayMessage: null });
             return;
         }
 
-        if (!userId || !currentSongId) {
-            this.replayCurrentTrack(state);
+        if (!state.autoplayEnabled) {
+            this.updateState({ isLoading: false, isPlaying: false, autoplayMessage: null });
+            return;
+        }
+
+        if (this.autoplayApiBlocked || !this.isAutoplayEnabledForCurrentRole() || !userId || !currentSongId) {
+            this.restartAutoplayCycle();
             return;
         }
 
         this.updateState({ isLoading: true, autoplayMessage: null });
-        this.apiService.get<any>(`/autoplay/next/${userId}/${currentSongId}`).pipe(
-            catchError(() => of(null))
-        ).subscribe((nextSong) => {
-            if (!this.hasPlayableAutoplaySong(nextSong)) {
-                this.replayCurrentTrack(this.getState());
-                return;
-            }
-
-            const recommendedSongId = Number(nextSong?.songId ?? nextSong?.id ?? 0);
-            if (recommendedSongId > 0 && recommendedSongId === currentSongId) {
-                if (this.tryPlayDifferentTrackFromQueue(this.getState())) {
-                    this.updateState({ autoplayMessage: null });
-                    return;
+        this.apiService.get<any>(`/autoplay/next/${encodeURIComponent(String(userId))}/${encodeURIComponent(String(currentSongId))}`).pipe(
+            map((response) => this.extractAutoplayTrack(response)),
+            map((track) => this.normalizeAutoplayTrack(track, this.getState().queue ?? [], currentSongId)),
+            catchError((err) => {
+                const status = Number(err?.status ?? 0);
+                if (status === 401 || status === 403) {
+                    this.autoplayApiBlocked = true;
                 }
-                this.replayCurrentTrack(this.getState());
+                return of(null);
+            })
+        ).subscribe((recommendedTrack) => {
+            if (!recommendedTrack) {
+                this.restartAutoplayCycle();
                 return;
             }
 
-            const resolvedTrack = this.normalizeTrack({
-                ...nextSong,
-                type: 'SONG'
-            });
             const latestState = this.getState();
-            const nextQueue = [...latestState.queue, resolvedTrack];
-            this.playResolvedTrack(resolvedTrack, nextQueue, nextQueue.length - 1, false, true);
+            const nextQueue = [...(latestState.queue ?? []), recommendedTrack];
+            const autoplayStartIndex = Math.max(0, nextQueue.length - 1);
+            this.autoplayCycleTracks = this.mergeAutoplayCycleTrack(recommendedTrack, this.autoplayCycleTracks);
+            this.autoplayCycleCursor = this.autoplayCycleTracks.findIndex((item) => this.getTrackId(item) === this.getTrackId(recommendedTrack));
+            this.playResolvedTrack(recommendedTrack, nextQueue, autoplayStartIndex, false, true);
             this.updateState({ autoplayMessage: null });
         });
+    }
+
+    private extractAutoplayTrack(response: any): any | null {
+        if (!response) {
+            return null;
+        }
+        if (Array.isArray(response)) {
+            return response[0] ?? null;
+        }
+        if (response?.data && !Array.isArray(response.data)) {
+            return response.data;
+        }
+        if (Array.isArray(response?.content)) {
+            return response.content[0] ?? null;
+        }
+        if (Array.isArray(response?.items)) {
+            return response.items[0] ?? null;
+        }
+        if (Array.isArray(response?.data)) {
+            return response.data[0] ?? null;
+        }
+        if (Array.isArray(response?.data?.content)) {
+            return response.data.content[0] ?? null;
+        }
+        if (Array.isArray(response?.data?.items)) {
+            return response.data.items[0] ?? null;
+        }
+        return response;
+    }
+
+    private normalizeAutoplayTrack(item: any, existingQueue: any[], currentSongId: number): any | null {
+        if (!this.hasPlayableAutoplaySong(item)) {
+            return null;
+        }
+
+        const existingSongIds = new Set<number>(
+            (existingQueue ?? [])
+                .map((item: any) => Number(item?.songId ?? item?.id ?? item?.contentId ?? 0))
+                .filter((id) => id > 0)
+        );
+
+        const songId = Number(item?.songId ?? item?.id ?? item?.contentId ?? 0);
+        if (songId > 0 && songId === currentSongId) {
+            return null;
+        }
+
+        if (songId > 0 && existingSongIds.has(songId)) {
+            const existingTrack = (existingQueue ?? []).find((queueItem: any) =>
+                Number(queueItem?.songId ?? queueItem?.id ?? queueItem?.contentId ?? 0) === songId
+            );
+            if (existingTrack?.isAutoplay) {
+                return this.normalizeTrack(existingTrack);
+            }
+        }
+
+        return this.normalizeTrack({
+            ...item,
+            type: 'SONG',
+            isAutoplay: true,
+            queueSection: 'AUTOPLAY'
+        });
+    }
+
+    private mergeAutoplayCycleTrack(track: any, existingTracks: any[]): any[] {
+        const normalizedTrack = this.normalizeTrack(track);
+        const trackId = this.getTrackId(normalizedTrack);
+        if (!trackId) {
+            return existingTracks ?? [];
+        }
+
+        const dedupedExisting = (existingTracks ?? []).filter((item: any) => this.getTrackId(item) !== trackId);
+        return [...dedupedExisting, normalizedTrack];
+    }
+
+    private restartAutoplayCycle(): void {
+        if ((this.autoplayCycleTracks ?? []).length === 0) {
+            this.updateState({ isLoading: false, isPlaying: false, autoplayMessage: null });
+            return;
+        }
+
+        const nextIndex = this.autoplayCycleCursor >= 0
+            ? (this.autoplayCycleCursor + 1) % this.autoplayCycleTracks.length
+            : 0;
+        const restartTrack = this.autoplayCycleTracks[nextIndex] ?? this.autoplayCycleTracks[0] ?? null;
+        if (!restartTrack) {
+            this.updateState({ isLoading: false, isPlaying: false, autoplayMessage: null });
+            return;
+        }
+
+        this.autoplayCycleCursor = nextIndex;
+        const nextQueue = [...(this.getState().queue ?? []), restartTrack];
+        this.playResolvedTrack(restartTrack, nextQueue, Math.max(0, nextQueue.length - 1), false, true);
     }
 
     private replayCurrentTrack(state: PlayerState): void {
@@ -784,72 +1043,114 @@ export class PlayerService {
         this.playResolvedTrack(current, queue, index >= 0 ? index : 0, false, false);
     }
 
-    private tryPlayDifferentTrackFromQueue(state: PlayerState): boolean {
+    private tryPlayUpcomingTrackFromQueue(state: PlayerState): boolean {
         const queue = state.queue ?? [];
         if (queue.length === 0) {
             return false;
         }
 
-        const currentTrackId = this.getTrackId(state.currentItem);
         const currentIndex = state.currentIndex >= 0 ? state.currentIndex : this.resolveQueueIndex(queue, state.currentItem);
         let candidateIndex = -1;
 
         if (state.isShuffle) {
-            const alternativeIndexes = queue
+            const upcomingIndexes = queue
                 .map((_, index) => index)
-                .filter((index) => this.getTrackId(queue[index]) !== currentTrackId);
-            if (alternativeIndexes.length > 0) {
-                candidateIndex = alternativeIndexes[Math.floor(Math.random() * alternativeIndexes.length)];
+                .filter((index) => index !== currentIndex && index > currentIndex);
+            if (upcomingIndexes.length > 0) {
+                candidateIndex = upcomingIndexes[Math.floor(Math.random() * upcomingIndexes.length)];
             }
         } else {
             const nextSequentialIndex = currentIndex + 1;
             if (nextSequentialIndex >= 0 && nextSequentialIndex < queue.length) {
-                const sequentialTrackId = this.getTrackId(queue[nextSequentialIndex]);
-                if (sequentialTrackId !== currentTrackId) {
-                    candidateIndex = nextSequentialIndex;
-                }
+                candidateIndex = nextSequentialIndex;
             }
-        }
-
-        if (candidateIndex < 0) {
-            candidateIndex = queue.findIndex((track) => this.getTrackId(track) !== currentTrackId);
         }
 
         if (candidateIndex < 0 || !queue[candidateIndex]) {
             return false;
         }
 
-        this.playResolvedTrack(queue[candidateIndex], queue, candidateIndex, false, true);
+        this.playQueueTrackAtIndex(queue, candidateIndex, true);
         return true;
+    }
+
+    private playQueueTrackAtIndex(queue: any[], index: number, trackHistory: boolean): void {
+        const safeIndex = index >= 0 ? index : 0;
+        const queueTrack = this.normalizeTrack(queue[safeIndex] ?? null);
+        if (!queueTrack) {
+            return;
+        }
+
+        const songId = Number(queueTrack?.songId ?? queueTrack?.id ?? 0);
+        if (songId > 0) {
+            this.apiService.get<any>(`/songs/${songId}`).pipe(
+                map((song) =>
+                    this.mergeTrackData(
+                        {
+                            ...song,
+                            id: song?.songId ?? songId,
+                            songId: song?.songId ?? songId,
+                            queueId: queueTrack?.queueId,
+                            position: queueTrack?.position,
+                            type: 'SONG'
+                        },
+                        queueTrack
+                    )
+                ),
+                catchError(() => of(queueTrack))
+            ).subscribe((resolvedTrack) => {
+                this.playResolvedTrack(resolvedTrack, queue, safeIndex, false, trackHistory);
+            });
+            return;
+        }
+
+        this.playResolvedTrack(queueTrack, queue, safeIndex, false, trackHistory);
     }
 
     private shouldInsertAdBeforeNextSong(state: PlayerState): boolean {
         if (this.isPremiumUser()) {
             return false;
         }
+        if (this.lastPlaybackWasAd) {
+            return false;
+        }
         const playedCount = Number(state.songsPlayedCount ?? 0);
-        return playedCount > 0 && playedCount % this.adFrequency === 0;
+        return playedCount > 0 && playedCount >= this.nextAdSongCheckpoint;
     }
 
     private playAdvertisementBetweenSongs(onAdFinished: () => void): void {
+        const state = this.getState();
+        const userId = this.getCurrentUserId();
+        const songId = Number(state.currentItem?.songId ?? state.currentItem?.id ?? 0);
+        if (!userId || !songId) {
+            onAdFinished();
+            return;
+        }
+
         this.resumeAfterAdAction = onAdFinished;
         this.updateState({ isLoading: true });
+        this.adService.fadeOutMusic(this.audio).subscribe({
+            complete: () => {
+                this.adService.fetchNextAd(userId, songId).pipe(
+                    catchError(() => of(null))
+                ).subscribe((adResponse) => {
+                    if (!adResponse || !this.isValidAd(adResponse)) {
+                        this.handleAdPlaybackFailure();
+                        return;
+                    }
 
-        this.apiService.get<any>('/ads/audio').pipe(
-            catchError(() => of(null))
-        ).subscribe((adResponse) => {
-            if (!this.isValidAd(adResponse)) {
-                this.handleAdPlaybackFailure();
-                return;
+                    const adMediaUrl = this.resolveAdMediaUrl(String(adResponse?.mediaUrl ?? ''));
+                    if (!adMediaUrl) {
+                        this.handleAdPlaybackFailure();
+                        return;
+                    }
+
+                    this.activeAdContext = adResponse;
+                    this.adAnalyticsService.trackEvent('ad_impression', adResponse, this.getTrackId(this.getState().currentItem));
+                    this.nextAdSongCheckpoint = this.generateNextAdSongCheckpoint(Number(this.getState().songsPlayedCount ?? 0));
+                    this.playAdMedia(adMediaUrl, Number(adResponse?.durationSeconds ?? 0));
+                });
             }
-
-            const adMediaUrl = this.resolveAdMediaUrl(String(adResponse?.mediaUrl ?? adResponse?.audioUrl ?? ''));
-            if (!adMediaUrl) {
-                this.handleAdPlaybackFailure();
-                return;
-            }
-
-            this.playAdMedia(adMediaUrl, Number(adResponse?.durationSeconds ?? 0));
         });
     }
 
@@ -857,6 +1158,7 @@ export class PlayerService {
         const requestVersion = ++this.playbackRequestVersion;
         this.stopProgressTicker();
         this.clearStartupFallbackTimer();
+        const targetVolume = Math.max(0, Math.min(1, Number(this.getState().volume ?? 50) / 100));
         this.updateState({
             isAdPlaying: true,
             isLoading: true,
@@ -872,8 +1174,12 @@ export class PlayerService {
                     return;
                 }
                 this.applyAudioSource(playableSourceUrl);
+                this.audio.volume = targetVolume;
                 this.updateState({ isPlaying: true });
-                this.audio.play().catch(() => this.handleAdPlaybackFailure());
+                this.audio.play().then(() => {
+                    this.lastPlaybackWasAd = true;
+                    this.adAnalyticsService.trackEvent('ad_started', this.activeAdContext);
+                }).catch(() => this.handleAdPlaybackFailure());
             },
             error: () => this.handleAdPlaybackFailure()
         });
@@ -891,11 +1197,15 @@ export class PlayerService {
 
         const resumeAction = this.resumeAfterAdAction;
         this.resumeAfterAdAction = null;
+        this.pendingMusicFadeIn = true;
+        this.pendingSkipAfterAdTracking = true;
+        this.lastCompletedAdContext = this.activeAdContext;
+        this.adAnalyticsService.trackEvent('ad_completed', this.activeAdContext);
         if (resumeAction) {
             resumeAction();
             return;
         }
-        this.playAutoplayRecommendation();
+        this.playNextLocal();
     }
 
     private handleAdPlaybackFailure(): void {
@@ -907,6 +1217,11 @@ export class PlayerService {
 
         const resumeAction = this.resumeAfterAdAction;
         this.resumeAfterAdAction = null;
+        this.pendingMusicFadeIn = true;
+        this.pendingSkipAfterAdTracking = false;
+        this.activeAdContext = null;
+        this.lastCompletedAdContext = null;
+        this.lastPlaybackWasAd = false;
         if (resumeAction) {
             resumeAction();
             return;
@@ -922,10 +1237,10 @@ export class PlayerService {
 
         let prevIndex = state.currentIndex - 1;
         if (prevIndex < 0) {
-            prevIndex = state.queue.length - 1;
+            prevIndex = state.repeatMode === 'ALL' ? state.queue.length - 1 : 0;
         }
 
-        this.playResolvedTrack(state.queue[prevIndex], state.queue, prevIndex, false, true);
+        this.playQueueTrackAtIndex(state.queue, prevIndex, true);
     }
 
     private resolveQueueTracks(queueItems: any[]): Observable<any[]> {
@@ -935,7 +1250,7 @@ export class PlayerService {
 
         const requests = queueItems.map((item) => this.resolveTrackFromQueueItem(item));
         return forkJoin(requests).pipe(
-            map((tracks) => tracks.filter((track) => !!track))
+            map((tracks) => this.filterInactiveTracks(tracks.filter((track) => !!track)))
         );
     }
 
@@ -989,15 +1304,19 @@ export class PlayerService {
     private resolveAudioUrl(track: any): string | null {
         const apiOrigin = environment.apiUrl.replace(/\/api\/v1$/, '');
         const apiBase = environment.apiUrl;
-        const songId = Number(track?.songId ?? track?.id ?? 0);
+        const normalizedType = this.resolveTrackType(track);
+        const isPodcast = normalizedType === 'PODCAST';
+        const episodeId = Number(track?.episodeId ?? track?.podcastEpisodeId ?? (isPodcast ? track?.id : 0) ?? 0);
+        const podcastId = Number(track?.podcastId ?? track?.podcast?.podcastId ?? track?.podcast?.id ?? 0);
+        const extractedFileName = this.extractFileName(String(track?.fileName ?? track?.audioFileName ?? track?.fileUrl ?? track?.audioUrl ?? ''));
+        const fileName = this.isLikelyAudioFile(extractedFileName) ? extractedFileName : '';
 
         const rawCandidates = [
-            track?.streamUrl,
-            track?.audioUrl,
             track?.fileUrl,
-            songId > 0 ? `${environment.apiUrl}/songs/${songId}/stream` : '',
-            songId > 0 ? `${environment.apiUrl}/songs/stream/${songId}` : '',
-            track?.streamUrl
+            track?.audioUrl,
+            fileName ? this.getStreamUrlByFileName(fileName, normalizedType) : '',
+            track?.streamUrl,
+            episodeId > 0 && podcastId > 0 ? `${environment.apiUrl}/podcasts/${podcastId}/episodes/${episodeId}/stream` : ''
         ];
 
         for (const candidate of rawCandidates) {
@@ -1017,21 +1336,19 @@ export class PlayerService {
                 return `${apiOrigin}/${rawUrl}`;
             }
             if (rawUrl.startsWith('/files/')) {
-                if (songId > 0) {
-                    return `${environment.apiUrl}/songs/${songId}/stream`;
-                }
                 return `${apiBase}${rawUrl}`;
             }
             if (rawUrl.startsWith('files/')) {
-                if (songId > 0) {
-                    return `${environment.apiUrl}/songs/${songId}/stream`;
-                }
                 return `${apiBase}/${rawUrl}`;
             }
 
             const fileNameFromUrl = this.extractFileName(rawUrl);
-            if (fileNameFromUrl && !rawUrl.includes('/')) {
-                return this.getStreamUrlByFileName(fileNameFromUrl, track?.type);
+            if (fileNameFromUrl && !rawUrl.includes('/') && this.isLikelyAudioFile(fileNameFromUrl)) {
+                return this.getStreamUrlByFileName(fileNameFromUrl, normalizedType);
+            }
+
+            if (fileNameFromUrl && this.isLikelyAudioFile(fileNameFromUrl)) {
+                return this.getStreamUrlByFileName(fileNameFromUrl, normalizedType);
             }
 
             if (rawUrl.startsWith('/')) {
@@ -1041,9 +1358,8 @@ export class PlayerService {
             return `${apiOrigin}/${rawUrl}`;
         }
 
-        const fileName = this.extractFileName(String(track?.fileName ?? ''));
-        if (fileName) {
-            return this.getStreamUrlByFileName(fileName, track?.type);
+        if (fileName && this.isLikelyAudioFile(fileName)) {
+            return this.getStreamUrlByFileName(fileName, normalizedType);
         }
 
         return null;
@@ -1085,17 +1401,28 @@ export class PlayerService {
         const fileName = this.extractFileName(String(track?.fileName ?? fileUrl));
         const resolvedImageUrl = this.resolveTrackImageUrl(track);
         const resolvedArtistName = this.resolveTrackArtistName(track);
+        const normalizedType = this.resolveTrackType(track);
+        const isPodcast = normalizedType === 'PODCAST';
+        const songId = isPodcast ? 0 : Number(track?.songId ?? track?.id ?? track?.contentId ?? 0);
+        const episodeId = Number(track?.episodeId ?? track?.podcastEpisodeId ?? (isPodcast ? track?.id ?? track?.contentId : 0) ?? 0);
+        const podcastId = Number(track?.podcastId ?? track?.podcast?.podcastId ?? track?.podcast?.id ?? 0);
+        const normalizedId = isPodcast
+            ? (episodeId || Number(track?.id ?? track?.contentId ?? 0))
+            : (songId || Number(track?.id ?? track?.contentId ?? 0));
+
         return {
             ...track,
-            id: Number(track?.id ?? track?.songId ?? track?.episodeId ?? track?.contentId ?? 0),
-            songId: Number(track?.songId ?? track?.id ?? track?.contentId ?? 0) || undefined,
+            id: normalizedId,
+            songId: songId || undefined,
+            episodeId: episodeId || undefined,
+            podcastId: podcastId || undefined,
             queueId: Number(track?.queueId ?? 0) || undefined,
             fileUrl: fileUrl || undefined,
             fileName: fileName || undefined,
             title: track?.title ?? 'Untitled',
             artistName: resolvedArtistName,
             imageUrl: resolvedImageUrl,
-            type: track?.type ?? (track?.episodeId ? 'PODCAST' : 'SONG')
+            type: normalizedType
         };
     }
 
@@ -1185,6 +1512,8 @@ export class PlayerService {
 
     private resolveTrackImageUrl(track: any): string | undefined {
         const apiOrigin = environment.apiUrl.replace(/\/api\/v1$/, '');
+        const songId = Number(track?.songId ?? track?.id ?? track?.contentId ?? 0);
+        const albumId = Number(track?.albumId ?? track?.album?.albumId ?? track?.album?.id ?? 0);
         const candidates = [
             track?.imageUrl,
             track?.coverUrl,
@@ -1234,7 +1563,7 @@ export class PlayerService {
             }
 
             const fileName = this.extractFileName(raw);
-            if (fileName && !raw.includes('/')) {
+            if (fileName && !raw.includes('/') && this.isLikelyImageFile(fileName)) {
                 return `${environment.apiUrl}/files/images/${encodeURIComponent(fileName)}`;
             }
 
@@ -1242,6 +1571,20 @@ export class PlayerService {
                 return `${apiOrigin}${raw}`;
             }
             return `${apiOrigin}/${raw}`;
+        }
+
+        if (songId > 0) {
+            const cachedSong = this.artistService.getCachedSongImage(songId);
+            if (cachedSong) {
+                return cachedSong;
+            }
+        }
+
+        if (albumId > 0) {
+            const cachedAlbum = this.artistService.getCachedAlbumImage(albumId);
+            if (cachedAlbum) {
+                return cachedAlbum;
+            }
         }
 
         return undefined;
@@ -1260,22 +1603,26 @@ export class PlayerService {
             }),
             catchError(() =>
                 this.resolveTrackAudioFallback(track, sourceUrl).pipe(
-                    map((fallbackUrl) => fallbackUrl || sourceUrl)
+                    switchMap((fallbackUrl) => fallbackUrl
+                        ? of(fallbackUrl)
+                        : throwError(() => new Error('No playable media source found'))
+                    )
                 )
             )
         );
     }
 
     private resolveTrackAudioFallback(track: any, failedUrl: string): Observable<string | null> {
-        const songId = Number(track?.songId ?? track?.id ?? 0);
-        const fileName = this.extractFileName(String(track?.fileName ?? track?.fileUrl ?? track?.audioUrl ?? ''));
+        const normalizedType = this.resolveTrackType(track);
+        const isPodcast = normalizedType === 'PODCAST';
+        const episodeId = Number(track?.episodeId ?? track?.podcastEpisodeId ?? (isPodcast ? track?.id : 0) ?? 0);
+        const podcastId = Number(track?.podcastId ?? track?.podcast?.podcastId ?? track?.podcast?.id ?? 0);
+        const extractedFileName = this.extractFileName(String(track?.fileName ?? track?.audioFileName ?? track?.fileUrl ?? track?.audioUrl ?? ''));
+        const fileName = this.isLikelyAudioFile(extractedFileName) ? extractedFileName : '';
         const candidates = [
-            songId > 0 ? `${environment.apiUrl}/songs/${songId}/stream` : '',
-            songId > 0 ? `${environment.apiUrl}/songs/stream/${songId}` : '',
-            songId > 0 ? `${environment.apiUrl}/songs/${songId}/audio` : '',
-            songId > 0 ? `${environment.apiUrl}/songs/stream?songId=${songId}` : '',
-            songId > 0 ? `${environment.apiUrl}/songs/${songId}/file` : '',
-            fileName ? `${environment.apiUrl}/files/songs/${encodeURIComponent(fileName)}` : ''
+            fileName ? this.getStreamUrlByFileName(fileName, normalizedType) : '',
+            episodeId > 0 && podcastId > 0 ? `${environment.apiUrl}/podcasts/${podcastId}/episodes/${episodeId}/stream` : '',
+            episodeId > 0 && podcastId > 0 ? `${environment.apiUrl}/podcasts/${podcastId}/episodes/${episodeId}/audio` : ''
         ]
             .map((value) => String(value ?? '').trim())
             .filter((value) => !!value && value !== String(failedUrl ?? '').trim());
@@ -1304,12 +1651,49 @@ export class PlayerService {
         );
     }
 
+    private hasDirectPlayableReference(track: any): boolean {
+        return !!String(
+            track?.fileUrl ??
+            track?.audioUrl ??
+            track?.streamUrl ??
+            track?.fileName ??
+            track?.audioFileName ??
+            ''
+        ).trim();
+    }
+
     private requiresAuthenticatedFetch(sourceUrl: string): boolean {
         const value = String(sourceUrl ?? '').trim();
         if (!value) {
             return false;
         }
-        return value.includes('/api/v1/files/') || value.includes('/files/');
+        const normalized = value.toLowerCase().split('?')[0];
+        const isProtectedFile = normalized.includes('/api/v1/files/') || normalized.includes('/files/');
+        const isProtectedSongStream = normalized.includes('/api/v1/songs/') && (
+            normalized.includes('/stream') ||
+            normalized.endsWith('/audio') ||
+            normalized.endsWith('/file')
+        );
+        const isProtectedPodcastStream = normalized.includes('/api/v1/podcasts/') && (
+            normalized.includes('/stream') ||
+            normalized.endsWith('/audio')
+        );
+
+        return isProtectedFile || isProtectedSongStream || isProtectedPodcastStream;
+    }
+
+    private generateNextAdSongCheckpoint(currentSongsPlayed: number): number {
+        const interval = Math.random() < 0.5 ? 2 : 3;
+        return Math.max(2, currentSongsPlayed + interval);
+    }
+
+    private trackSkipAfterAd(): void {
+        if (!this.pendingSkipAfterAdTracking) {
+            return;
+        }
+        this.pendingSkipAfterAdTracking = false;
+        this.adAnalyticsService.trackEvent('user_skipped_song_after_ad', this.lastCompletedAdContext, this.getTrackId(this.getState().currentItem));
+        this.lastCompletedAdContext = null;
     }
 
     private applyAudioSource(sourceUrl: string): void {
@@ -1454,8 +1838,16 @@ export class PlayerService {
         this.activeObjectUrl = null;
     }
 
+    restoreLastPlayback(): void {
+        this.restoreLastPlaybackState();
+    }
+
     private restoreLastPlaybackState(): void {
-        const raw = localStorage.getItem(this.LAST_PLAYBACK_KEY);
+        const userId = this.getCurrentUserId() ?? 0;
+        if (userId <= 0) {
+            return;
+        }
+        const raw = localStorage.getItem(this.resolvePlaybackStorageKey(userId));
         if (!raw) {
             return;
         }
@@ -1465,9 +1857,16 @@ export class PlayerService {
             const songId = Number(parsed?.songId ?? parsed?.id ?? 0);
             const title = String(parsed?.title ?? '').trim();
             const audioUrl = String(parsed?.audioUrl ?? parsed?.fileUrl ?? '').trim();
+            const storedFileName = String(parsed?.fileName ?? '').trim();
             const currentTime = Number(parsed?.currentTime ?? 0);
             const artistName = String(parsed?.artistName ?? '').trim();
-            if (!songId || !audioUrl) {
+            const validStoredFileName = this.isLikelyAudioFile(storedFileName) ? storedFileName : '';
+            const validAudioUrl = audioUrl && (
+                audioUrl.includes('/files/') ||
+                this.isLikelyAudioFile(this.extractFileName(audioUrl))
+            );
+            if (!songId || (!validStoredFileName && !validAudioUrl)) {
+                localStorage.removeItem(this.resolvePlaybackStorageKey(userId));
                 return;
             }
 
@@ -1476,8 +1875,9 @@ export class PlayerService {
                 songId,
                 title: title || 'Last Played Song',
                 artistName: artistName || 'Unknown Artist',
-                audioUrl,
-                fileUrl: audioUrl,
+                audioUrl: validAudioUrl ? audioUrl : '',
+                fileUrl: validAudioUrl ? audioUrl : '',
+                fileName: validStoredFileName || (validAudioUrl ? this.extractFileName(audioUrl) : ''),
                 type: 'SONG'
             });
 
@@ -1492,17 +1892,25 @@ export class PlayerService {
                 bufferedPercent: 0
             });
 
-            this.resolvePlayableSource(audioUrl).subscribe({
+            const sourceUrl = this.resolveAudioUrl(restoredTrack);
+            if (!sourceUrl) {
+                localStorage.removeItem(this.resolvePlaybackStorageKey(userId));
+                this.updateState({ isLoading: false, currentItem: null, queue: [], currentIndex: -1, currentTime: 0 });
+                return;
+            }
+
+            this.resolvePlayableSource(sourceUrl, restoredTrack).subscribe({
                 next: (sourceUrl) => {
                     this.applyAudioSource(sourceUrl);
                     this.updateState({ isLoading: false });
                 },
                 error: () => {
+                    localStorage.removeItem(this.resolvePlaybackStorageKey(userId));
                     this.updateState({ isLoading: false });
                 }
             });
         } catch {
-            localStorage.removeItem(this.LAST_PLAYBACK_KEY);
+            localStorage.removeItem(this.resolvePlaybackStorageKey(userId));
         }
     }
 
@@ -1533,10 +1941,15 @@ export class PlayerService {
             title: String(current?.title ?? 'Last Played Song'),
             artistName: String(current?.artistName ?? ''),
             audioUrl,
+            fileName: this.isLikelyAudioFile(String(current?.fileName ?? '')) ? String(current?.fileName ?? '').trim() : '',
             currentTime: Number(this.audio.currentTime ?? state.currentTime ?? 0)
         };
 
-        localStorage.setItem(this.LAST_PLAYBACK_KEY, JSON.stringify(payload));
+        const userId = this.getCurrentUserId() ?? 0;
+        if (userId <= 0) {
+            return;
+        }
+        localStorage.setItem(this.resolvePlaybackStorageKey(userId), JSON.stringify(payload));
         this.lastPlaybackPersistedAt = now;
     }
 
@@ -1558,6 +1971,25 @@ export class PlayerService {
         return `${environment.apiUrl}/files/${mediaType}/${encodeURIComponent(fileName)}`;
     }
 
+    private resolveTrackType(track: any): string {
+        const explicitType = String(track?.type ?? '').trim().toUpperCase();
+        if (explicitType) {
+            return explicitType;
+        }
+        if (Number(track?.episodeId ?? track?.podcastEpisodeId ?? 0) > 0) {
+            return 'PODCAST';
+        }
+        return 'SONG';
+    }
+
+    private isLikelyAudioFile(fileName: string): boolean {
+        return /\.(mp3|wav|m4a|aac|flac|ogg)$/i.test(String(fileName ?? '').trim());
+    }
+
+    private isLikelyImageFile(fileName: string): boolean {
+        return /\.(png|jpe?g|webp|gif|avif|svg)$/i.test(String(fileName ?? '').trim());
+    }
+
     private extractFileName(value: string): string {
         const cleaned = String(value ?? '').trim();
         if (!cleaned) {
@@ -1574,6 +2006,17 @@ export class PlayerService {
     private getTrackId(track: any): number | null {
         const id = Number(track?.id ?? track?.songId ?? track?.episodeId ?? track?.contentId ?? 0);
         return id > 0 ? id : null;
+    }
+
+    private isInactiveTrack(track: any): boolean {
+        if (!track || this.resolveTrackType(track) !== 'SONG') {
+            return false;
+        }
+        return track?.isActive === false;
+    }
+
+    private filterInactiveTracks(tracks: any[]): any[] {
+        return (tracks ?? []).filter((track) => !this.isInactiveTrack(track));
     }
 
     private getCurrentUserId(): number | null {
@@ -1661,7 +2104,29 @@ export class PlayerService {
 
         try {
             const user = JSON.parse(rawUser);
-            return hasRole(user, 'LISTENER');
+            return hasAnyRole(user, ['LISTENER', 'ARTIST', 'ADMIN']);
+        } catch {
+            return false;
+        }
+    }
+
+    private resolvePlaybackStorageKey(userId?: number | null): string {
+        const normalized = Number(userId ?? 0);
+        if (normalized > 0) {
+            return `${this.LAST_PLAYBACK_KEY}:${normalized}`;
+        }
+        return this.LAST_PLAYBACK_KEY;
+    }
+
+    private isAutoplayEnabledForCurrentRole(): boolean {
+        const rawUser = localStorage.getItem('revplay_user');
+        if (!rawUser) {
+            return false;
+        }
+
+        try {
+            const user = JSON.parse(rawUser);
+            return hasAnyRole(user, ['LISTENER', 'ARTIST', 'ADMIN']);
         } catch {
             return false;
         }

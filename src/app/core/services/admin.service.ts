@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { ApiService } from '../../core/services/api';
-import { Observable } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
-import { of, throwError } from 'rxjs';
+import { Observable, forkJoin } from 'rxjs';
+import { HttpParams } from '@angular/common/http';
+import { catchError, map, switchMap } from 'rxjs/operators';
+import { of } from 'rxjs';
 
 export interface AuditLogQuery {
     page?: number;
@@ -58,6 +59,59 @@ export class AdminService {
 
     createGenre(genreData: any): Observable<any> {
         return this.apiService.post<any>('/genres', genreData);
+    }
+
+    getSystemPlaylists(): Observable<any[]> {
+        return this.apiService.get<any>('/system-playlists').pipe(
+            map((response) => this.normalizeList(response))
+        );
+    }
+
+    addSongsToSystemPlaylist(slug: string, songIds: number[]): Observable<any> {
+        const normalized = encodeURIComponent(String(slug ?? '').trim());
+        const payload = {
+            songIds: (songIds ?? []).map((id) => Number(id)).filter((id) => id > 0)
+        };
+        return this.apiService.post<any>(`/system-playlists/${normalized}/songs`, payload);
+    }
+
+    getAvailableSongs(page = 0, size = 200): Observable<any> {
+        return this.apiService.get<any>('/browse/songs').pipe(
+            map((response) => this.normalizeList(response)),
+            switchMap((songs) => {
+                if ((songs ?? []).length > 0) {
+                    return of(songs);
+                }
+
+                return forkJoin([
+                    this.apiService.get<any>('/search?q=a&type=SONG&page=0&size=80').pipe(catchError(() => of([]))),
+                    this.apiService.get<any>('/search?q=e&type=SONG&page=0&size=80').pipe(catchError(() => of([]))),
+                    this.apiService.get<any>('/search?q=o&type=SONG&page=0&size=80').pipe(catchError(() => of([])))
+                ]).pipe(
+                    map((responses) => {
+                        const merged = responses.flatMap((response: any) => this.normalizeList(response));
+                        const unique = new Map<number, any>();
+                        for (const song of merged) {
+                            const songId = Number(song?.songId ?? song?.trackId ?? song?.contentId ?? song?.id ?? 0);
+                            if (songId > 0 && !unique.has(songId)) {
+                                unique.set(songId, song);
+                            }
+                        }
+                        return Array.from(unique.values());
+                    })
+                );
+            })
+        );
+    }
+
+    getSystemPlaylistSongs(slug: string): Observable<any> {
+        const normalized = encodeURIComponent(String(slug ?? '').trim());
+        return this.apiService.get<any>(`/system-playlists/${normalized}/songs`);
+    }
+
+    getSongById(songId: number): Observable<any> {
+        const normalizedSongId = Math.max(1, Number(songId ?? 0));
+        return this.apiService.get<any>(`/songs/${normalizedSongId}`);
     }
 
     updateGenre(id: number, genreData: any): Observable<any> {
@@ -178,26 +232,39 @@ export class AdminService {
     }
 
     getTopMixes(): Observable<any> {
-        return this.apiService.get<any>('/admin/business-analytics/top-mixes');
+        return this.apiService.get<any>('/admin/business-analytics/top-mixes').pipe(
+            map((response) => this.normalizeList(response))
+        );
     }
 
     getPremiumConversionRate(): Observable<any> {
         return this.apiService.get<any>('/admin/business-analytics/conversion-rate');
     }
 
-    getCurrentAudioAd(): Observable<any> {
-        return this.apiService.get<any>('/ads/audio');
+    uploadAudioAd(file: File, title: string, durationSeconds?: number): Observable<any> {
+        const formData = new FormData();
+        formData.append('file', file, file.name);
+
+        let params = new HttpParams();
+        const normalizedTitle = String(title ?? '').trim();
+        if (normalizedTitle) {
+            params = params.set('title', normalizedTitle);
+        }
+
+        const normalizedDuration = Number(durationSeconds ?? 0);
+        if (normalizedDuration > 0) {
+            params = params.set('durationSeconds', String(normalizedDuration));
+        }
+
+        return this.apiService.postMultipart('/admin/ads/upload', formData, params);
     }
 
-    uploadAudioAd(file: File, title: string, durationSeconds?: number): Observable<any> {
-        const attempts: Array<{ path: string; field: string }> = [
-            { path: '/ads/audio', field: 'file' },
-            { path: '/ads/audio', field: 'audioFile' },
-            { path: '/admin/ads/audio', field: 'file' },
-            { path: '/admin/ads/upload', field: 'file' }
-        ];
+    activateAudioAd(adId: number): Observable<any> {
+        return this.apiService.patch<any>(`/admin/ads/${adId}/activate`, {});
+    }
 
-        return this.tryUploadAudioAd(file, title, durationSeconds, attempts);
+    deactivateAudioAd(adId: number): Observable<any> {
+        return this.apiService.patch<any>(`/admin/ads/${adId}/deactivate`, {});
     }
 
     private normalizeList(response: any): any[] {
@@ -242,30 +309,5 @@ export class AdminService {
         }
 
         return [];
-    }
-
-    private tryUploadAudioAd(
-        file: File,
-        title: string,
-        durationSeconds: number | undefined,
-        attempts: Array<{ path: string; field: string }>
-    ): Observable<any> {
-        if (attempts.length === 0) {
-            return throwError(() => new Error('Upload endpoint not available'));
-        }
-
-        const [current, ...remaining] = attempts;
-        const formData = new FormData();
-        formData.append(current.field, file, file.name);
-        if (String(title ?? '').trim()) {
-            formData.append('title', String(title).trim());
-        }
-        if (Number(durationSeconds ?? 0) > 0) {
-            formData.append('durationSeconds', String(Number(durationSeconds)));
-        }
-
-        return this.apiService.postMultipart(current.path, formData).pipe(
-            catchError((err) => this.tryUploadAudioAd(file, title, durationSeconds, remaining))
-        );
     }
 }

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
@@ -7,6 +7,8 @@ import { ArtistService } from '../../core/services/artist.service';
 import { StateService } from '../../core/services/state.service';
 import { AuthService } from '../../core/services/auth';
 import { resolveHttpErrorMessage } from '../../core/utils/error-message.util';
+import { ProtectedMediaPipe } from '../../core/pipes/protected-media.pipe';
+import { Chart } from 'chart.js/auto';
 
 interface DashboardSnapshot {
   stats: any | null;
@@ -21,9 +23,9 @@ interface DashboardSnapshot {
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
   standalone: true,
-  imports: [CommonModule, RouterModule]
+  imports: [CommonModule, RouterModule, ProtectedMediaPipe]
 })
-export class DashboardComponent implements OnInit, OnDestroy {
+export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly recentUploadsCacheKey = 'revplay_artist_recent_uploads_cache';
   private readonly dashboardCacheKey = 'revplay_artist_dashboard_cache';
   private readonly dashboardCacheTtlMs = 10 * 60 * 1000;
@@ -36,6 +38,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   isLoading = true;
   notice: string | null = null;
   error: string | null = null;
+  @ViewChild('trendChart') trendChart?: ElementRef<HTMLCanvasElement>;
+  private trendChartInstance: Chart | null = null;
+  maxTrendPlays = 0;
+  trendListSource: any[] = [];
 
   private username = '';
   private artistDisplayName = '';
@@ -80,9 +86,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
       });
   }
 
+  ngAfterViewInit(): void {
+    if (this.trendListSource.length > 0) {
+      this.scheduleTrendChartRender();
+    }
+  }
+
   ngOnDestroy(): void {
     this.activeLoadSequence += 1;
     this.clearLoadWatchdog();
+    this.destroyTrendChart();
   }
 
   loadDashboardData(): void {
@@ -349,14 +362,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
     topSongs: any,
     recentUploads: any
   ): DashboardSnapshot {
-    const normalizedStats = stats && typeof stats === 'object' ? { ...stats } : null;
+    let normalizedStats = stats && typeof stats === 'object' ? { ...stats } : null;
     const normalizedSummary = summary && typeof summary === 'object' ? { ...summary } : null;
     const points = Array.isArray(trends) ? trends : (trends?.points ?? trends?.content ?? []);
-    const trendPoints = Array.isArray(points) ? points : [];
+    const trendPoints = (Array.isArray(points) ? points : []).map((point: any) => ({
+      ...point,
+      playCount: this.resolvePlayCount(point)
+    }));
     const rankedSongs = this.normalizeTopSongs(topSongs);
     const recentSongs = this.normalizeTopSongs(recentUploads);
     const cachedSongs = this.getCachedRecentUploadsForCurrentUser();
-    let resolvedTopSongs = rankedSongs.length > 0 ? rankedSongs : recentSongs;
+    let resolvedTopSongs = this.preferSongsWithPlays(rankedSongs, recentSongs);
     if (resolvedTopSongs.length === 0 && cachedSongs.length > 0) {
       resolvedTopSongs = cachedSongs;
     }
@@ -368,6 +384,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       resolvedSummary = {
         ...(resolvedSummary ?? {}),
         totalSongs: resolvedTopSongs.length
+      };
+    }
+
+    const derivedTotalPlays = this.resolveTotalPlays(normalizedStats, resolvedTopSongs, trendPoints);
+    if (derivedTotalPlays > 0) {
+      normalizedStats = {
+        ...(normalizedStats ?? {}),
+        totalPlays: derivedTotalPlays
       };
     }
 
@@ -384,8 +408,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.stats = snapshot?.stats ?? null;
     this.summary = snapshot?.summary ?? null;
     this.trendPoints = Array.isArray(snapshot?.trendPoints) ? snapshot.trendPoints : [];
+    this.maxTrendPlays = this.resolveMaxTrendPlays(this.trendPoints);
     this.topSongs = Array.isArray(snapshot?.topSongs) ? snapshot.topSongs.slice(0, 10) : [];
+    this.trendListSource = this.resolveTrendListSource();
     this.hydrateTopSongImages();
+    this.scheduleTrendChartRender();
   }
 
   private hasObjectData(value: any): boolean {
@@ -400,6 +427,154 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.hasObjectData(snapshot.summary) ||
       (Array.isArray(snapshot.trendPoints) && snapshot.trendPoints.length > 0) ||
       (Array.isArray(snapshot.topSongs) && snapshot.topSongs.length > 0);
+  }
+
+  private scheduleTrendChartRender(): void {
+    setTimeout(() => this.tryRenderTrendChart(0), 0);
+  }
+
+  private tryRenderTrendChart(attempt: number): void {
+    if (this.renderTrendChart()) {
+      return;
+    }
+    if (attempt >= 3) {
+      return;
+    }
+    setTimeout(() => this.tryRenderTrendChart(attempt + 1), 120);
+  }
+
+  private renderTrendChart(): boolean {
+    const canvas = this.trendChart?.nativeElement;
+    if (!canvas) {
+      return false;
+    }
+
+    const points = Array.isArray(this.trendPoints) ? this.trendPoints : [];
+    const chartSource = this.resolveChartSource(points);
+    if (chartSource.length === 0) {
+      this.destroyTrendChart();
+      return true;
+    }
+    this.maxTrendPlays = this.resolveMaxTrendPlays(chartSource);
+
+    const labels = chartSource.map((point: any, index: number) => this.getTrendLabel(point, index));
+    const values = chartSource.map((point: any) => this.getTrendValue(point));
+
+    if (this.trendChartInstance) {
+      this.trendChartInstance.data.labels = labels;
+      this.trendChartInstance.data.datasets[0].data = values;
+      this.trendChartInstance.update();
+      return true;
+    }
+
+    this.trendChartInstance = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Plays',
+            data: values,
+            borderColor: '#f4c58e',
+            backgroundColor: 'rgba(244, 197, 142, 0.15)',
+            tension: 0.35,
+            fill: true,
+            pointRadius: 3,
+            pointHoverRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(8, 12, 20, 0.9)',
+            borderColor: 'rgba(255,255,255,0.08)',
+            borderWidth: 1,
+            titleColor: '#fff',
+            bodyColor: '#d7e1f1'
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#8b97ad' },
+            grid: { color: 'rgba(255,255,255,0.06)' }
+          },
+          y: {
+            ticks: { color: '#8b97ad' },
+            grid: { color: 'rgba(255,255,255,0.06)' }
+          }
+        }
+      }
+    });
+    return true;
+  }
+
+  getTrendLabel(point: any, index: number): string {
+    return String(
+      point?.songTitle ??
+      point?.title ??
+      point?.trackName ??
+      point?.name ??
+      point?.date ??
+      point?.label ??
+      point?.period ??
+      `Track ${index + 1}`
+    );
+  }
+
+  getTrendValue(point: any): number {
+    return Number(point?.playCount ?? point?.plays ?? point?.value ?? 0);
+  }
+
+  getTrendPercent(point: any): number {
+    const max = this.maxTrendPlays || this.resolveMaxTrendPlays(this.trendPoints);
+    if (max <= 0) {
+      return 0;
+    }
+    return Math.min(100, Math.round((this.getTrendValue(point) / max) * 100));
+  }
+
+  private resolveMaxTrendPlays(points: any[]): number {
+    const list = Array.isArray(points) ? points : [];
+    return list.reduce((max, point) => {
+      const value = this.getTrendValue(point);
+      return value > max ? value : max;
+    }, 0);
+  }
+
+  private resolveChartSource(points: any[]): any[] {
+    const list = Array.isArray(points) ? points : [];
+    const hasSongNames = list.some((point) => {
+      const name = String(
+        point?.songTitle ??
+        point?.title ??
+        point?.trackName ??
+        point?.name ??
+        ''
+      ).trim();
+      return !!name;
+    });
+    if (hasSongNames) {
+      return list;
+    }
+    return Array.isArray(this.topSongs) && this.topSongs.length > 0 ? this.topSongs : list;
+  }
+
+  private resolveTrendListSource(): any[] {
+    if (Array.isArray(this.topSongs) && this.topSongs.length > 0) {
+      return this.topSongs;
+    }
+    return Array.isArray(this.trendPoints) ? this.trendPoints : [];
+  }
+
+  private destroyTrendChart(): void {
+    if (this.trendChartInstance) {
+      this.trendChartInstance.destroy();
+      this.trendChartInstance = null;
+    }
   }
 
   private getCachedDashboardSnapshotForCurrentUser(): DashboardSnapshot | null {
@@ -508,10 +683,74 @@ export class DashboardComponent implements OnInit, OnDestroy {
         songId: songId > 0 ? songId : null,
         title: track?.title ?? track?.name ?? `Track #${songId > 0 ? songId : index + 1}`,
         artistName: this.resolveArtistName(track),
-        playCount: Number(track?.playCount ?? track?.totalPlays ?? track?.streams ?? track?.count ?? 0),
+        playCount: this.resolvePlayCount(track),
         imageUrl: this.resolveSongImageUrl(track)
       };
     }).filter((track: any) => !!track);
+  }
+
+  private resolvePlayCount(item: any): number {
+    return Number(
+      item?.playCount ??
+      item?.totalPlays ??
+      item?.artistPlayCount ??
+      item?.totalStreams ??
+      item?.totalStreamCount ??
+      item?.streamsCount ??
+      item?.plays ??
+      item?.streams ??
+      item?.streamCount ??
+      item?.listenCount ??
+      item?.listenerCount ??
+      item?.play_count ??
+      item?.total_plays ??
+      item?.artist_play_count ??
+      item?.total_streams ??
+      item?.stream_count ??
+      item?.listen_count ??
+      item?.count ??
+      item?.analytics?.playCount ??
+      item?.analytics?.totalPlays ??
+      item?.stats?.playCount ??
+      item?.stats?.totalPlays ??
+      item?.stats?.streams ??
+      item?.metrics?.playCount ??
+      item?.metrics?.totalPlays ??
+      0
+    );
+  }
+
+  private preferSongsWithPlays(primary: any[], fallback: any[]): any[] {
+    const primaryList = Array.isArray(primary) ? primary : [];
+    const fallbackList = Array.isArray(fallback) ? fallback : [];
+    const primaryTotal = primaryList.reduce((sum, track) => sum + this.resolvePlayCount(track), 0);
+    const fallbackTotal = fallbackList.reduce((sum, track) => sum + this.resolvePlayCount(track), 0);
+
+    if (fallbackTotal > primaryTotal) {
+      return fallbackList;
+    }
+
+    return primaryList.length > 0 ? primaryList : fallbackList;
+  }
+
+  private resolveTotalPlays(stats: any, topSongs: any[], trendPoints: any[]): number {
+    const direct = this.resolvePlayCount(stats);
+    if (direct > 0) {
+      return direct;
+    }
+
+    const songTotal = (topSongs ?? []).reduce(
+      (sum: number, track: any) => sum + this.resolvePlayCount(track),
+      0
+    );
+    if (songTotal > 0) {
+      return songTotal;
+    }
+
+    return (trendPoints ?? []).reduce(
+      (sum: number, point: any) => sum + this.resolvePlayCount(point),
+      0
+    );
   }
 
   private resolveArtistName(track: any): string {
@@ -669,7 +908,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             songId: songId > 0 ? songId : null,
             title: String(item?.title ?? '').trim() || `Track #${index + 1}`,
             artistName: String(item?.artistName ?? '').trim() || this.artistDisplayName || this.username || 'Unknown Artist',
-            playCount: Number(item?.playCount ?? 0),
+            playCount: this.resolvePlayCount(item),
             imageUrl: this.resolveSongImageUrl(item)
           };
         })

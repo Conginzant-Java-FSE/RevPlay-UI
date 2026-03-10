@@ -207,7 +207,14 @@ export class ArtistService {
         if (!fileName) {
             return '';
         }
-        return `${environment.apiUrl}/files/podcasts/${fileName}`;
+        return `${environment.apiUrl}/files/podcasts/${encodeURIComponent(fileName)}`;
+    }
+
+    getSongStreamUrl(fileName: string): string {
+        if (!fileName) {
+            return '';
+        }
+        return `${environment.apiUrl}/files/songs/${encodeURIComponent(fileName)}`;
     }
 
     verifyArtist(artistId: number, verified: boolean): Observable<any> {
@@ -241,7 +248,8 @@ export class ArtistService {
 
     getAlbum(albumId: number): Observable<any> {
         return this.apiService.get<any>(`/albums/${albumId}`).pipe(
-            map((album) => {
+            map((response) => {
+                const album = this.unwrapPayload(response);
                 const normalizedAlbumId = Number(album?.albumId ?? album?.id ?? 0);
                 const resolvedAlbumImage = this.resolveImageUrl(
                     album?.coverArtUrl ??
@@ -393,6 +401,61 @@ export class ArtistService {
         return this.getImageUrlByFileName(fileName);
     }
 
+    resolveUploadedSongPayload(uploadResponse: any): any | null {
+        const payload = uploadResponse?.body ?? uploadResponse ?? {};
+        const payloadData = payload?.data ?? {};
+        const rawSongId = Number(
+            payloadData?.songId ??
+            payload?.songId ??
+            payloadData?.id ??
+            payload?.id ??
+            payloadData?.song?.songId ??
+            payloadData?.song?.id ??
+            payload?.song?.songId ??
+            payload?.song?.id ??
+            0
+        );
+
+        const candidates = [
+            payloadData?.song,
+            payload?.song,
+            payloadData,
+            payload
+        ].filter((item: any) => item && typeof item === 'object');
+
+        for (const candidate of candidates) {
+            const normalized = this.normalizeSongList([{
+                ...candidate,
+                songId: Number(candidate?.songId ?? candidate?.id ?? rawSongId ?? 0) || rawSongId,
+                id: Number(candidate?.songId ?? candidate?.id ?? rawSongId ?? 0) || rawSongId,
+                fileName: candidate?.fileName ?? payloadData?.fileName ?? payload?.fileName,
+                audioFileName: candidate?.audioFileName ?? payloadData?.audioFileName ?? payload?.audioFileName,
+                fileUrl: candidate?.fileUrl ?? payloadData?.fileUrl ?? payload?.fileUrl,
+                audioUrl: candidate?.audioUrl ?? payloadData?.audioUrl ?? payload?.audioUrl,
+                streamUrl: candidate?.streamUrl ?? payloadData?.streamUrl ?? payload?.streamUrl,
+                imageUrl: candidate?.imageUrl ?? candidate?.coverImageUrl ?? payloadData?.imageUrl ?? payload?.imageUrl,
+                coverImageUrl: candidate?.coverImageUrl ?? payloadData?.coverImageUrl ?? payload?.coverImageUrl,
+                coverArtUrl: candidate?.coverArtUrl ?? payloadData?.coverArtUrl ?? payload?.coverArtUrl
+            }])[0];
+
+            const hasIdentity = Number(normalized?.songId ?? normalized?.id ?? 0) > 0;
+            const hasAudio = !!String(
+                normalized?.fileUrl ??
+                normalized?.audioUrl ??
+                normalized?.streamUrl ??
+                normalized?.fileName ??
+                normalized?.audioFileName ??
+                ''
+            ).trim();
+
+            if (hasIdentity || hasAudio) {
+                return normalized;
+            }
+        }
+
+        return rawSongId > 0 ? { songId: rawSongId, id: rawSongId } : null;
+    }
+
     resolveImageUrl(imageUrlOrFileName: string): string {
         const value = String(imageUrlOrFileName ?? '').trim();
         if (!value) {
@@ -433,20 +496,20 @@ export class ArtistService {
 
         if (value.startsWith('/uploads/') || value.startsWith('uploads/')) {
             const fileName = this.extractFileName(value);
-            return fileName ? this.getImageUrlByFileName(fileName) : '';
+            return fileName && this.isLikelyImageFile(fileName) ? this.getImageUrlByFileName(fileName) : '';
         }
 
         if (value.startsWith('/images/') || value.startsWith('images/')) {
             const fileName = this.extractFileName(value);
-            return fileName ? this.getImageUrlByFileName(fileName) : '';
+            return fileName && this.isLikelyImageFile(fileName) ? this.getImageUrlByFileName(fileName) : '';
         }
 
-        if (!value.includes('/')) {
+        if (!value.includes('/') && this.isLikelyImageFile(value)) {
             return this.getImageUrlByFileName(value);
         }
 
         const fileName = this.extractFileName(value);
-        if (fileName) {
+        if (fileName && this.isLikelyImageFile(fileName)) {
             return this.getImageUrlByFileName(fileName);
         }
 
@@ -565,6 +628,10 @@ export class ArtistService {
         return segments[segments.length - 1] ?? '';
     }
 
+    private isLikelyImageFile(fileName: string): boolean {
+        return /\.(png|jpe?g|webp|gif|avif|svg)$/i.test(String(fileName ?? '').trim());
+    }
+
     private isImageCollectionEndpoint(rawValue: string): boolean {
         const normalized = String(rawValue ?? '')
             .trim()
@@ -579,6 +646,18 @@ export class ArtistService {
         return normalized.endsWith('/api/v1/files/images') ||
             normalized.endsWith('/files/images') ||
             normalized === 'files/images';
+    }
+
+    private unwrapPayload(response: any): any {
+        if (!response || typeof response !== 'object') {
+            return response;
+        }
+
+        if (response?.data && typeof response.data === 'object' && !Array.isArray(response.data)) {
+            return response.data;
+        }
+
+        return response;
     }
 
     private uploadImageRequest(path: string, file: File, fieldName: string): Observable<any> {
@@ -641,6 +720,17 @@ export class ArtistService {
         return (songs ?? []).map((song: any) => {
             const songId = Number(song?.songId ?? song?.id ?? 0);
             const albumId = Number(song?.albumId ?? song?.album?.albumId ?? song?.album?.id ?? 0);
+            const playCount = this.resolvePlayCount(song);
+            const fileName = this.extractFileName(
+                song?.fileName ??
+                song?.audioFileName ??
+                song?.fileUrl ??
+                song?.audioUrl ??
+                song?.streamUrl ??
+                ''
+            );
+            const fallbackSongFileUrl = fileName ? this.getSongStreamUrl(fileName) : '';
+            const canonicalStreamUrl = songId > 0 ? `${environment.apiUrl}/songs/${songId}/stream` : '';
             const resolvedImage = this.resolveImageUrl(
                 song?.imageUrl ??
                 song?.coverUrl ??
@@ -679,6 +769,9 @@ export class ArtistService {
             if (albumId > 0 && resolvedImage) {
                 this.cacheAlbumImage(albumId, resolvedImage);
             }
+            if (songId > 0 && resolvedImage) {
+                this.cacheSongImage(songId, resolvedImage);
+            }
 
             return {
                 ...song,
@@ -687,9 +780,44 @@ export class ArtistService {
                 albumId,
                 artistName: resolvedArtistName,
                 durationSeconds: Number(song?.durationSeconds ?? 0),
+                playCount,
+                fileName: song?.fileName || song?.audioFileName || fileName,
+                audioFileName: song?.audioFileName || song?.fileName || fileName,
+                fileUrl: song?.fileUrl || song?.audioUrl || song?.streamUrl || fallbackSongFileUrl,
+                audioUrl: song?.audioUrl || song?.fileUrl || song?.streamUrl || fallbackSongFileUrl,
+                streamUrl: song?.streamUrl || canonicalStreamUrl || fallbackSongFileUrl,
                 imageUrl: resolvedImage || this.getCachedSongImage(songId) || this.getCachedAlbumImage(albumId)
             };
         });
+    }
+
+    private resolvePlayCount(item: any): number {
+        return Number(
+            item?.playCount ??
+            item?.totalPlays ??
+            item?.artistPlayCount ??
+            item?.totalStreams ??
+            item?.totalStreamCount ??
+            item?.streamsCount ??
+            item?.plays ??
+            item?.streams ??
+            item?.streamCount ??
+            item?.listenCount ??
+            item?.listenerCount ??
+            item?.play_count ??
+            item?.total_plays ??
+            item?.artist_play_count ??
+            item?.total_streams ??
+            item?.stream_count ??
+            item?.listen_count ??
+            item?.count ??
+            item?.analytics?.playCount ??
+            item?.analytics?.totalPlays ??
+            item?.stats?.playCount ??
+            item?.stats?.totalPlays ??
+            item?.stats?.streams ??
+            0
+        );
     }
 
     private normalizePodcastList(podcasts: any[]): any[] {
@@ -697,10 +825,22 @@ export class ArtistService {
     }
 
     private normalizePodcast(podcast: any): any {
+        const coverImage = this.resolveImageUrl(
+            podcast?.coverImageUrl ??
+            podcast?.coverArtUrl ??
+            podcast?.coverUrl ??
+            podcast?.imageUrl ??
+            podcast?.image ??
+            podcast?.cover?.imageUrl ??
+            podcast?.cover?.fileName ??
+            ''
+        );
         return {
             ...podcast,
             id: Number(podcast?.podcastId ?? podcast?.id ?? 0),
-            podcastId: Number(podcast?.podcastId ?? podcast?.id ?? 0)
+            podcastId: Number(podcast?.podcastId ?? podcast?.id ?? 0),
+            coverImageUrl: podcast?.coverImageUrl ?? podcast?.coverArtUrl ?? podcast?.coverUrl ?? '',
+            imageUrl: coverImage
         };
     }
 
@@ -709,12 +849,24 @@ export class ArtistService {
     }
 
     private normalizeEpisode(episode: any): any {
+        const fileName = this.extractFileName(
+            episode?.fileName ??
+            episode?.audioFileName ??
+            episode?.audioUrl ??
+            episode?.fileUrl ??
+            episode?.streamUrl ??
+            ''
+        );
         return {
             ...episode,
             id: Number(episode?.episodeId ?? episode?.id ?? 0),
             episodeId: Number(episode?.episodeId ?? episode?.id ?? 0),
             podcastId: Number(episode?.podcastId ?? 0),
-            durationSeconds: Number(episode?.durationSeconds ?? 0)
+            durationSeconds: Number(episode?.durationSeconds ?? 0),
+            fileName: episode?.fileName ?? episode?.audioFileName ?? fileName,
+            fileUrl: episode?.fileUrl ?? episode?.audioUrl ?? episode?.streamUrl ?? (fileName ? this.getPodcastStreamUrl(fileName) : ''),
+            audioUrl: episode?.audioUrl ?? episode?.fileUrl ?? episode?.streamUrl ?? (fileName ? this.getPodcastStreamUrl(fileName) : ''),
+            streamUrl: episode?.streamUrl ?? episode?.audioUrl ?? episode?.fileUrl ?? (fileName ? this.getPodcastStreamUrl(fileName) : '')
         };
     }
 }

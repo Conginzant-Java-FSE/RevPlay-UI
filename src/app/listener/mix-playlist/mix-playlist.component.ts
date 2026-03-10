@@ -3,14 +3,14 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { BrowseService } from '../services/browse.service';
 import { PlayerService } from '../../core/services/player.service';
-import { ArtistService } from '../../core/services/artist.service';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { ProtectedMediaPipe } from '../../core/pipes/protected-media.pipe';
 
 @Component({
   selector: 'app-mix-playlist',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, ProtectedMediaPipe],
   templateUrl: './mix-playlist.component.html',
   styleUrls: ['./mix-playlist.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -26,7 +26,6 @@ export class MixPlaylistComponent implements OnInit {
     private route: ActivatedRoute,
     private browseService: BrowseService,
     private playerService: PlayerService,
-    private artistService: ArtistService,
     private cdr: ChangeDetectorRef
   ) { }
 
@@ -35,6 +34,7 @@ export class MixPlaylistComponent implements OnInit {
       this.slug = String(params.get('slug') ?? '').trim();
       this.playlistName = this.toTitleCase(this.slug.replace(/-/g, ' ')) || 'Mix Playlist';
       this.loadSongs();
+      this.loadPlaylistMeta();
     });
   }
 
@@ -74,11 +74,10 @@ export class MixPlaylistComponent implements OnInit {
     this.error = null;
     this.songs = [];
 
-    this.browseService.getSystemPlaylistSongs(this.slug).pipe(
+    this.browseService.getSystemPlaylistSongDetails(this.slug).pipe(
       catchError(() => of([]))
-    ).subscribe((response: any) => {
-      const source = Array.isArray(response) ? response : (Array.isArray(response?.content) ? response.content : []);
-      this.songs = (source ?? []).map((song: any) => this.normalizeSong(song));
+    ).subscribe((songs: any[]) => {
+      this.songs = (songs ?? []).filter((song: any) => !!song);
       this.isLoading = false;
       if (this.songs.length === 0) {
         this.error = null;
@@ -87,25 +86,21 @@ export class MixPlaylistComponent implements OnInit {
     });
   }
 
-  private normalizeSong(song: any): any {
-    const songId = Number(song?.songId ?? song?.id ?? song?.contentId ?? 0);
-    const cover = this.resolveSongImage(song);
+  private loadPlaylistMeta(): void {
+    if (!this.slug) {
+      return;
+    }
 
-    return {
-      ...song,
-      id: songId,
-      songId,
-      title: String(song?.title ?? `Song #${songId}`),
-      artistName: String(
-        song?.artistName ??
-        song?.artistDisplayName ??
-        song?.artist?.displayName ??
-        song?.artist?.name ??
-        'Unknown Artist'
-      ),
-      fileUrl: String(song?.fileUrl ?? song?.audioUrl ?? ''),
-      imageUrl: cover
-    };
+    this.browseService.getSystemPlaylists().pipe(
+      catchError(() => of([]))
+    ).subscribe((playlists: any[]) => {
+      const matched = (playlists ?? []).find((playlist: any) => String(playlist?.slug ?? '').trim() === this.slug);
+      const matchedName = String(matched?.name ?? '').trim();
+      if (matchedName) {
+        this.playlistName = matchedName;
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   private toPlayerTrack(song: any): any {
@@ -113,36 +108,17 @@ export class MixPlaylistComponent implements OnInit {
       id: Number(song?.songId ?? song?.id ?? 0),
       songId: Number(song?.songId ?? song?.id ?? 0),
       title: String(song?.title ?? 'Song'),
-      artistName: String(song?.artistName ?? 'Unknown Artist'),
-      fileUrl: String(song?.fileUrl ?? song?.audioUrl ?? ''),
-      imageUrl: String(song?.imageUrl ?? ''),
+      artist: String(song?.artist ?? song?.artistName ?? 'Unknown Artist'),
+      artistName: String(song?.artist ?? song?.artistName ?? 'Unknown Artist'),
+      fileUrl: String(song?.fileUrl ?? song?.audioUrl ?? song?.streamUrl ?? ''),
+      audioUrl: String(song?.audioUrl ?? song?.fileUrl ?? song?.streamUrl ?? ''),
+      streamUrl: String(song?.streamUrl ?? song?.audioUrl ?? song?.fileUrl ?? ''),
+      image: String(song?.image ?? song?.imageUrl ?? 'assets/images/placeholder-album.png'),
+      coverUrl: String(song?.image ?? song?.coverUrl ?? song?.imageUrl ?? 'assets/images/placeholder-album.png'),
+      coverImageUrl: String(song?.image ?? song?.coverImageUrl ?? song?.imageUrl ?? 'assets/images/placeholder-album.png'),
+      imageUrl: String(song?.image ?? song?.imageUrl ?? 'assets/images/placeholder-album.png'),
       type: 'SONG'
     };
-  }
-
-  private resolveSongImage(song: any): string {
-    const candidates = [
-      song?.imageUrl,
-      song?.coverUrl,
-      song?.coverArtUrl,
-      song?.coverImageUrl,
-      song?.album?.coverArtUrl,
-      song?.album?.coverImageUrl,
-      song?.thumbnailUrl
-    ];
-
-    for (const candidate of candidates) {
-      const raw = String(candidate ?? '').trim();
-      if (!raw) {
-        continue;
-      }
-      const resolved = this.artistService.resolveImageUrl(raw);
-      if (resolved) {
-        return resolved;
-      }
-    }
-
-    return '';
   }
 
   private toTitleCase(input: string): string {

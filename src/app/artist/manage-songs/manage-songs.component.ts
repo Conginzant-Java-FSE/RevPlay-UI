@@ -9,11 +9,12 @@ import { ArtistService } from '../../core/services/artist.service';
 import { StateService } from '../../core/services/state.service';
 import { AuthService } from '../../core/services/auth';
 import { GenreService } from '../../core/services/genre.service';
+import { ProtectedMediaPipe } from '../../core/pipes/protected-media.pipe';
 
 @Component({
   selector: 'app-manage-songs',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, ProtectedMediaPipe],
   templateUrl: './manage-songs.component.html',
   styleUrls: ['./manage-songs.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -240,13 +241,18 @@ export class ManageSongsComponent implements OnInit {
       return;
     }
 
+    const confirmed = window.confirm('Are you sure you want to delete this song?');
+    if (!confirmed) {
+      return;
+    }
+
     this.isSaving = true;
     this.clearMessages();
     this.artistService.deleteSong(songId).subscribe({
       next: () => {
         this.isSaving = false;
         this.successMessage = 'Song deleted.';
-        this.selectedSong = null;
+        this.pendingSongImageLoads.delete(songId);
         this.reloadSongs();
       },
       error: () => {
@@ -334,6 +340,8 @@ export class ManageSongsComponent implements OnInit {
           const refreshedSelection = this.songs.find((song) => Number(song?.songId ?? song?.id ?? 0) === selectedId);
           if (refreshedSelection) {
             this.selectedSong = refreshedSelection;
+          } else {
+            this.selectedSong = null;
           }
         }
 

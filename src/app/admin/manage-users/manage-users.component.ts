@@ -24,6 +24,8 @@ interface UserSuggestion {
 export class ManageUsersComponent implements OnInit, OnDestroy {
   private readonly userEmailCacheKey = 'revplay_user_email_map';
   private readonly registrationLogCacheKey = 'revplay_pending_registration_logs';
+  private readonly deletedUserFallback = { username: 'Deleted User' };
+  private readonly missingUserIds = new Set<number>();
   users: UserSuggestion[] = [];
   isLoading = false;
   error: string | null = null;
@@ -51,7 +53,6 @@ export class ManageUsersComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadUsers();
-    this.loadUsersFromDirectory();
     this.startAutoRefresh();
   }
 
@@ -73,54 +74,7 @@ export class ManageUsersComponent implements OnInit, OnDestroy {
 
     this.isLoading = true;
     this.error = null;
-    this.adminService.getAuditLogs({ page: 0, size: 200, fresh: true }).subscribe({
-      next: (firstPage) => {
-        const totalPages = Math.max(1, Number(firstPage?.totalPages ?? 1));
-        const pagesToLoad = this.resolvePageIndexes(totalPages);
-        const remainingRequests: Observable<any>[] = pagesToLoad
-          .filter((page) => page !== 0)
-          .map((page) =>
-            this.adminService.getAuditLogs({ page, size: 200, fresh: true }).pipe(
-              catchError(() => of({ content: [] }))
-            )
-          );
-
-        const hydrateUsers = (allLogs: any[]) => {
-          const mergedLogs = this.mergeUniqueLogs([...allLogs, ...this.getPendingRegistrationLogs()]);
-          const baseUsers = this.buildUserSuggestionsFromLogs(mergedLogs);
-          forkJoin({
-            artistFromLogs: this.enrichUsersFromArtistLogs(mergedLogs).pipe(catchError(() => of([]))),
-            artistFromCatalog: this.loadArtistUsersFromCatalog().pipe(catchError(() => of([])))
-          }).subscribe(({ artistFromLogs, artistFromCatalog }) => {
-            const mergedUsers = this.mergeSuggestions(baseUsers, artistFromLogs ?? [], artistFromCatalog ?? []);
-            this.enrichUsersWithProfiles(mergedUsers).subscribe((enrichedUsers) => {
-              this.users = (enrichedUsers ?? [])
-                .filter((user) => !this.isSuspiciousTestData(user.label) && !this.isSuspiciousTestData(user.email));
-              this.isLoading = false;
-              this.loadUsersFromDirectory();
-              this.cdr.markForCheck();
-            });
-          });
-        };
-
-        if (remainingRequests.length === 0) {
-          hydrateUsers(Array.isArray(firstPage?.content) ? firstPage.content : []);
-          return;
-        }
-
-        forkJoin(remainingRequests).subscribe((restPages) => {
-          const firstLogs = Array.isArray(firstPage?.content) ? firstPage.content : [];
-          const restLogs = restPages.flatMap((page) => (Array.isArray(page?.content) ? page.content : []));
-          hydrateUsers(this.mergeUniqueLogs([...firstLogs, ...restLogs]));
-        });
-      },
-      error: () => {
-        this.users = [];
-        this.isLoading = false;
-        this.error = 'Could not load recent users. You can still enter user id manually.';
-        this.cdr.markForCheck();
-      }
-    });
+    this.loadUsersFromDirectory('');
   }
 
   get filteredUsers(): UserSuggestion[] {
@@ -226,7 +180,6 @@ export class ManageUsersComponent implements OnInit, OnDestroy {
     }
 
     this.searchDebounceTimer = window.setTimeout(() => {
-      this.fetchUsersFromServerSearch(query);
       this.loadUsersFromDirectory(query);
     }, 300);
   }
@@ -501,29 +454,20 @@ export class ManageUsersComponent implements OnInit, OnDestroy {
       return of(null);
     }
 
-    return this.adminService.getUserById(normalizedUserId).pipe(
+    if (this.missingUserIds.has(normalizedUserId)) {
+      return of(this.deletedUserFallback);
+    }
+
+    return this.apiService.get<any>(`/admin/users/${normalizedUserId}`).pipe(
       map((response) => response?.data ?? response),
       map((payload) => (payload && typeof payload === 'object' ? payload : null)),
-      catchError(() => of(null)),
-      switchMap((directoryPayload) =>
-        this.apiService.get<any>(`/profile/${normalizedUserId}`).pipe(
-          map((response) => response?.data ?? response),
-          map((profilePayload) => {
-            if (!directoryPayload && !profilePayload) {
-              return null;
-            }
-
-            const merged = {
-              ...(directoryPayload ?? {}),
-              profile: profilePayload ?? (directoryPayload as any)?.profile ?? null,
-              user: (directoryPayload as any)?.user ?? null
-            };
-
-            return merged;
-          }),
-          catchError(() => of(directoryPayload))
-        )
-      )
+      catchError((error) => {
+        if (Number(error?.status ?? 0) === 404) {
+          this.missingUserIds.add(normalizedUserId);
+          return of(this.deletedUserFallback);
+        }
+        return of(null);
+      })
     );
   }
 
@@ -877,85 +821,36 @@ export class ManageUsersComponent implements OnInit, OnDestroy {
     if (!keyword) {
       return;
     }
-
-    const version = ++this.activeSearchVersion;
-    this.adminService.getAuditLogs({
-      page: 0,
-      size: 200,
-      user: keyword,
-      fresh: true
-    }).pipe(
-      catchError(() => of({ content: [] }))
-    ).subscribe((paged) => {
-      if (version !== this.activeSearchVersion) {
-        return;
-      }
-
-      const sourceLogs = this.mergeUniqueLogs([
-        ...(Array.isArray(paged?.content) ? paged.content : []),
-        ...this.getPendingRegistrationLogs()
-      ]);
-      const suggestions = this.buildUserSuggestionsFromLogs(sourceLogs);
-      if (suggestions.length === 0) {
-        return;
-      }
-
-      this.enrichUsersWithProfiles(suggestions).subscribe((enrichedUsers) => {
-        if (version !== this.activeSearchVersion) {
-          return;
-        }
-
-        for (const user of enrichedUsers ?? []) {
-          if (this.isSuspiciousTestData(user?.label) || this.isSuspiciousTestData(user?.email)) {
-            continue;
-          }
-          this.upsertSuggestion(user);
-        }
-        this.cdr.markForCheck();
-      });
-    });
+    this.loadUsersFromDirectory(keyword);
   }
 
   private loadUsersFromDirectory(search = ''): void {
-    this.adminService.getUsersPage(0, 200, search).pipe(
-      catchError(() => of({ content: [], totalPages: 1 }))
+    this.adminService.getUsersPage(0, 20, search).pipe(
+      catchError(() => of({ content: [] }))
     ).subscribe((firstPage: any) => {
-      const totalPages = Math.max(1, Number(firstPage?.totalPages ?? 1));
-      const pagesToLoad = Array.from({ length: Math.min(totalPages, 12) }, (_, index) => index).filter((page) => page !== 0);
-      const requests = pagesToLoad.map((page) =>
-        this.adminService.getUsersPage(page, 200, search).pipe(
-          catchError(() => of({ content: [] }))
-        )
-      );
+      const items = Array.isArray(firstPage?.content) ? firstPage.content : [];
+      const suggestions = this.buildSuggestionsFromUserDirectory(items)
+        .filter((user) => !this.isSuspiciousTestData(user?.label) && !this.isSuspiciousTestData(user?.email));
 
-      const hydrate = (pages: any[]) => {
-        const items = pages.flatMap((page) => (Array.isArray(page?.content) ? page.content : []));
-        const suggestions = this.buildSuggestionsFromUserDirectory(items);
-        if (suggestions.length === 0) {
-          return;
-        }
-        this.enrichUsersWithProfiles(suggestions).subscribe((enrichedSuggestions) => {
-          for (const suggestion of enrichedSuggestions ?? []) {
-            if (this.isSuspiciousTestData(suggestion?.label) || this.isSuspiciousTestData(suggestion?.email)) {
-              continue;
-            }
-            this.upsertSuggestion(suggestion);
-            if (suggestion.userId && suggestion.email) {
-              this.persistCachedEmailByUserId(suggestion.userId, suggestion.email);
-            }
-          }
-          this.cdr.markForCheck();
-        });
-      };
-
-      if (requests.length === 0) {
-        hydrate([firstPage]);
-        return;
+      if (String(search ?? '').trim()) {
+        this.users = suggestions;
+      } else {
+        this.users = suggestions;
+        this.isLoading = false;
       }
 
-      forkJoin(requests).subscribe((restPages) => {
-        hydrate([firstPage, ...restPages]);
-      });
+      for (const suggestion of suggestions) {
+        if (suggestion.userId && suggestion.email) {
+          this.persistCachedEmailByUserId(suggestion.userId, suggestion.email);
+        }
+      }
+
+      this.cdr.markForCheck();
+    }, () => {
+      this.users = [];
+      this.isLoading = false;
+      this.error = 'Could not load users list.';
+      this.cdr.markForCheck();
     });
   }
 

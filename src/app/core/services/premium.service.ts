@@ -3,10 +3,12 @@ import { BehaviorSubject, Observable, of } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { ApiService } from './api';
 import { TokenService } from './token';
+import { resolvePrimaryRole } from '../utils/role.util';
 
 export interface PremiumStatus {
     isPremium: boolean;
     plan: string;
+    planAmount?: number | null;
     expiresAt: string | null;
     statusCode?: number;
 }
@@ -16,6 +18,7 @@ export interface PremiumStatus {
 })
 export class PremiumService {
     private readonly STORAGE_KEY = 'revplay_premium_status';
+    private readonly PLAN_CACHE_KEY = 'revplay_premium_plan_by_user';
     private readonly statusSubject = new BehaviorSubject<PremiumStatus>(this.getStoredStatus());
     readonly status$ = this.statusSubject.asObservable();
 
@@ -41,10 +44,18 @@ export class PremiumService {
         }
 
         return this.apiService.get<any>(`/premium/status?userId=${encodeURIComponent(String(userId))}`).pipe(
-            map((response) => this.normalizeStatus(response)),
+            map((response) => {
+                const normalized = this.normalizeStatus({
+                    ...this.statusSubject.value,
+                    ...(response?.data && typeof response.data === 'object' ? response.data : response)
+                });
+                return this.applyUserPlanFallback(userId, normalized);
+            }),
             tap((status) => this.setStatus(status)),
             catchError((err) => {
+                const existing = this.statusSubject.value;
                 const fallback = this.normalizeStatus({
+                    ...existing,
                     statusCode: Number(err?.status ?? err?.error?.status ?? 0)
                 });
                 this.setStatus(fallback);
@@ -63,7 +74,19 @@ export class PremiumService {
             planType: normalizedPlan,
             billingCycle: normalizedPlan.toLowerCase()
         };
-        return this.apiService.post<any>(`/premium/upgrade?${query}`, payload);
+        return this.apiService.post<any>(`/premium/upgrade?${query}`, payload).pipe(
+            tap((response) => {
+                const normalized = this.normalizeStatus({
+                    ...this.statusSubject.value,
+                    ...response,
+                    isPremium: true,
+                    plan: response?.plan ?? response?.planType ?? normalizedPlan,
+                    planAmount: response?.planAmount ?? response?.amount ?? response?.price ?? this.resolvePlanAmount(normalizedPlan),
+                    statusCode: 0
+                });
+                this.setStatus(normalized);
+            })
+        );
     }
 
     clearStatus(): void {
@@ -75,6 +98,7 @@ export class PremiumService {
         const normalized = this.normalizeStatus(status);
         this.statusSubject.next(normalized);
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(normalized));
+        this.cachePlanForCurrentUser(normalized);
     }
 
     private getStoredStatus(): PremiumStatus {
@@ -93,14 +117,117 @@ export class PremiumService {
     }
 
     private normalizeStatus(status: any): PremiumStatus {
+        const normalizedState = String(
+            status?.status ??
+            status?.subscriptionStatus ??
+            status?.premiumStatus ??
+            ''
+        ).trim().toUpperCase();
+
         return {
-            isPremium: Boolean(status?.isPremium ?? false),
-            plan: String(status?.plan ?? '').trim().toUpperCase(),
+            isPremium: Boolean(
+                status?.isPremium ??
+                status?.premium ??
+                status?.premiumActive ??
+                status?.active ??
+                (normalizedState === 'ACTIVE')
+            ),
+            plan: String(
+                status?.plan ??
+                status?.planType ??
+                status?.subscriptionPlan ??
+                ''
+            ).trim().toUpperCase(),
+            planAmount: this.normalizePlanAmount(
+                status?.planAmount ??
+                status?.amount ??
+                status?.price ??
+                status?.subscriptionAmount ??
+                status?.subscriptionPrice ??
+                status?.data?.planAmount ??
+                status?.data?.amount ??
+                status?.data?.price ??
+                status?.data?.subscriptionAmount ??
+                status?.data?.subscriptionPrice
+            ),
             expiresAt: status?.expiresAt
                 ? String(status.expiresAt)
-                : (status?.expiryDate ? String(status.expiryDate) : null),
+                : (status?.expiryDate
+                    ? String(status.expiryDate)
+                    : (status?.expiresOn ? String(status.expiresOn) : null)),
             statusCode: Number(status?.statusCode ?? 0) || undefined
         };
+    }
+
+    private normalizePlanAmount(value: any): number | null {
+        const amount = Number(value ?? 0);
+        return Number.isFinite(amount) && amount > 0 ? amount : null;
+    }
+
+    private resolvePlanAmount(plan: string): number | null {
+        const normalized = String(plan ?? '').trim().toUpperCase();
+        if (normalized === 'YEARLY') {
+            return 1499;
+        }
+        if (normalized === 'MONTHLY') {
+            return 199;
+        }
+        return null;
+    }
+
+    private cachePlanForCurrentUser(status: PremiumStatus): void {
+        if (!status?.isPremium) {
+            return;
+        }
+        const hasPlan = !!String(status?.plan ?? '').trim();
+        const hasAmount = Number(status?.planAmount ?? 0) > 0;
+        if (!hasPlan && !hasAmount) {
+            return;
+        }
+        const userId = this.resolveCurrentUserId();
+        if (userId <= 0) {
+            return;
+        }
+        const cache = this.readPlanCache();
+        cache[String(userId)] = {
+            plan: String(status?.plan ?? '').trim().toUpperCase(),
+            planAmount: Number(status?.planAmount ?? 0) || null
+        };
+        localStorage.setItem(this.PLAN_CACHE_KEY, JSON.stringify(cache));
+    }
+
+    private applyUserPlanFallback(userId: number, status: PremiumStatus): PremiumStatus {
+        if (!status?.isPremium) {
+            return status;
+        }
+        const hasPlan = !!String(status?.plan ?? '').trim();
+        const hasAmount = Number(status?.planAmount ?? 0) > 0;
+        if (hasPlan || hasAmount) {
+            return status;
+        }
+        const cache = this.readPlanCache();
+        const cached = cache[String(userId)] ?? null;
+        if (!cached) {
+            return status;
+        }
+        return this.normalizeStatus({
+            ...status,
+            plan: cached.plan,
+            planAmount: cached.planAmount
+        });
+    }
+
+    private readPlanCache(): Record<string, { plan?: string; planAmount?: number | null }> {
+        try {
+            const raw = localStorage.getItem(this.PLAN_CACHE_KEY);
+            if (!raw) {
+                return {};
+            }
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch {
+            return {};
+        }
     }
 
     private resolveCurrentUserId(): number {
@@ -147,6 +274,23 @@ export class PremiumService {
         }
     }
 
+    private resolveCurrentRole(): string {
+        return this.readRoleFromStorage() || this.readRoleFromToken();
+    }
+
+    private readRoleFromStorage(): string {
+        try {
+            const rawUser = localStorage.getItem('revplay_user') ?? localStorage.getItem('user');
+            if (!rawUser) {
+                return '';
+            }
+            const parsed = JSON.parse(rawUser);
+            return resolvePrimaryRole(parsed?.user ?? parsed);
+        } catch {
+            return '';
+        }
+    }
+
     private readUserIdFromToken(): number {
         try {
             const token = String(this.tokenService.getToken() ?? '').trim();
@@ -178,6 +322,31 @@ export class PremiumService {
             return 0;
         } catch {
             return 0;
+        }
+    }
+
+    private readRoleFromToken(): string {
+        try {
+            const token = String(this.tokenService.getToken() ?? '').trim();
+            if (!token) {
+                return '';
+            }
+            const parts = token.split('.');
+            if (parts.length < 2) {
+                return '';
+            }
+
+            const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            const normalized = payloadBase64 + '='.repeat((4 - payloadBase64.length % 4) % 4);
+            const payloadJson = atob(normalized);
+            const claims = JSON.parse(payloadJson);
+            return resolvePrimaryRole({
+                role: claims?.role,
+                roles: claims?.roles,
+                authorities: claims?.authorities
+            });
+        } catch {
+            return '';
         }
     }
 }

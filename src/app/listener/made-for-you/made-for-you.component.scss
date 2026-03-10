@@ -15,6 +15,7 @@
     border-radius: 12px;
     color: var(--text-primary);
     transition: transform 0.2s ease;
+    overflow: hidden;
 
     &:hover {
         transform: translateY(-3px);

@@ -21,7 +21,7 @@
         </div>
     </div>
 
-    <div class="mt-4" *ngIf="searchQuery.trim() === '' && selectedFilter === 'ALL' && !isLoading && !hasResults && !error">
+    <div class="search-results" *ngIf="searchQuery.trim() === '' && selectedFilter === 'ALL' && !isLoading && !hasResults && !error">
         <h3 class="fw-bold mb-4">Browse All Genres</h3>
         <div *ngIf="genres.length === 0" class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-4">
             <div class="col" *ngFor="let i of [1,2,3,4,5,6,7,8]">
@@ -39,7 +39,7 @@
         </div>
     </div>
 
-    <div class="mt-4" *ngIf="searchQuery.trim() !== '' || selectedFilter !== 'ALL' || isLoading || hasResults || error">
+    <div class="search-results" *ngIf="searchQuery.trim() !== '' || selectedFilter !== 'ALL' || isLoading || hasResults || error">
         <div *ngIf="isLoading" class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-4 mb-5">
             <div class="col" *ngFor="let i of [1,2,3,4,5]">
                 <div class="card bg-secondary-panel border-0 p-3 h-100">
@@ -94,7 +94,7 @@
                         <div class="card result-card bg-secondary-panel border-0 p-3 h-100">
                             <div class="d-flex justify-content-between align-items-start gap-3">
                                 <div class="d-flex align-items-center gap-3 flex-grow-1 overflow-hidden">
-                                    <img class="song-thumb" [src]="song.coverArtUrl || 'assets/images/placeholder-album.png'"
+                                    <img class="song-thumb" [src]="((song.coverArtUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')"
                                         (error)="onSongThumbError($event)" alt="Song cover" loading="lazy">
                                     <div class="flex-grow-1 overflow-hidden">
                                         <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
@@ -107,15 +107,14 @@
                                     </button>
                                     <div class="dropdown song-actions-dropdown">
                                         <button type="button" class="btn btn-sm btn-outline-light rounded-circle"
-                                            data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8"
-                                            aria-expanded="false">
+                                            data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
                                             <i class="bi bi-three-dots"></i>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
-                                            <li><button type="button" class="dropdown-item" (click)="addSongToLikedSongs(song)">Add to liked songs</button></li>
+                                            <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
                                             <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
-                                            <li><button type="button" class="dropdown-item" (click)="hideSongInCurrentResults(song)">Hide in this list</button></li>
                                             <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                            <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
                                             <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
                                             <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
                                             <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
@@ -133,8 +132,15 @@
                 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
                     <div class="col" *ngFor="let artist of groupedResults.artists">
                         <div class="card result-card bg-secondary-panel border-0 p-3 h-100">
-                            <h6 class="mb-1 text-truncate">{{ artist.title }}</h6>
-                            <p class="text-muted small mb-2 text-truncate">{{ artist.subtitle || 'Artist' }}</p>
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <img class="artist-thumb"
+                                    [src]="(((artist.coverArtUrl || artist.imageUrl) | protectedMedia | async) || 'assets/images/placeholder-artist.png')"
+                                    (error)="onArtistThumbError($event)" alt="Artist image" loading="lazy">
+                                <div class="artist-copy min-w-0">
+                                    <h6 class="mb-1 text-truncate">{{ artist.title }}</h6>
+                                    <p class="text-muted small mb-0 text-truncate">{{ artist.subtitle || 'Artist' }}</p>
+                                </div>
+                            </div>
                             <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 align-self-start"
                                 (click)="toggleArtistFollow(artist)">
                                 {{ artist.isFollowed ? 'Unfollow' : 'Follow' }}
@@ -151,7 +157,7 @@
                         <button type="button" class="card result-card album-card bg-secondary-panel border-0 p-3 h-100 text-start w-100"
                             (click)="selectAlbum(album)">
                             <div class="d-flex align-items-center gap-3">
-                                <img class="album-thumb" [src]="album.coverArtUrl || 'assets/images/placeholder-album.png'"
+                                <img class="album-thumb" [src]="((getAlbumCardImage(album) | protectedMedia | async) || 'assets/images/placeholder-album.png')"
                                     (error)="onMediaThumbError($event)" alt="Album cover">
                                 <div class="flex-grow-1 overflow-hidden">
                                     <h6 class="mb-1 text-truncate">{{ album.title }}</h6>
@@ -168,7 +174,7 @@
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
                         <div class="d-flex align-items-center gap-3">
                             <img class="album-selected-thumb"
-                                [src]="selectedAlbum?.coverArtUrl || 'assets/images/placeholder-album.png'" alt="Selected album cover">
+                                [src]="((selectedAlbum?.coverArtUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" alt="Selected album cover">
                             <div>
                                 <h5 class="text-white mb-1">{{ selectedAlbum?.title || 'Selected Album' }}</h5>
                                 <p class="text-muted small mb-0">{{ selectedAlbumSongs.length }} songs</p>
@@ -198,22 +204,58 @@
 
             <section class="result-section" *ngIf="groupedResults.podcasts.length > 0">
                 <h4 class="section-title">Podcasts</h4>
-                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
-                    <div class="col" *ngFor="let podcast of groupedResults.podcasts">
-                        <div class="card result-card bg-secondary-panel border-0 p-3 h-100">
-                            <div class="d-flex align-items-center gap-3">
-                                <img class="song-thumb" [src]="podcast.coverArtUrl || 'assets/images/placeholder-playlist.png'"
-                                    (error)="onMediaThumbError($event)" alt="Podcast cover" loading="lazy">
-                                <div class="flex-grow-1 overflow-hidden">
-                                    <h6 class="mb-1 text-truncate">{{ podcast.title }}</h6>
-                                    <p class="text-muted small mb-2 text-truncate">{{ podcast.subtitle || 'Podcast' }}</p>
-                                </div>
+                <div class="podcast-result-list">
+                    <button type="button" class="podcast-result-item"
+                        *ngFor="let podcast of groupedResults.podcasts"
+                        [class.active]="(selectedPodcast?.podcastId || selectedPodcast?.id) === (podcast?.podcastId || podcast?.id)"
+                        (click)="selectPodcast(podcast)">
+                        <img class="podcast-result-thumb"
+                            [src]="((podcast.coverArtUrl | protectedMedia | async) || 'assets/images/placeholder-playlist.png')"
+                            (error)="onMediaThumbError($event)" alt="Podcast cover" loading="lazy">
+                        <div class="podcast-result-copy">
+                            <h6 class="mb-1 text-truncate">{{ podcast.title }}</h6>
+                            <p class="text-muted small mb-0 text-truncate">{{ podcast.subtitle || 'Podcast' }}</p>
+                        </div>
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+
+                <div class="card result-card bg-secondary-panel border-0 p-4 podcast-selected-panel mt-3" *ngIf="selectedPodcast">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                        <div class="d-flex align-items-center gap-3 min-w-0">
+                            <img class="podcast-selected-thumb"
+                                [src]="((selectedPodcast.coverArtUrl | protectedMedia | async) || 'assets/images/placeholder-playlist.png')"
+                                (error)="onMediaThumbError($event)" alt="Selected podcast cover" loading="lazy">
+                            <div class="min-w-0">
+                                <h3 class="mb-1 text-truncate">{{ selectedPodcast.title }}</h3>
+                                <p class="text-muted mb-0">{{ selectedPodcastEpisodes.length }} episodes</p>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3 align-self-start"
-                                (click)="togglePodcastFollow(podcast)">
-                                {{ podcast.isFollowed ? 'Unfollow' : 'Follow' }}
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-sm btn-primary rounded-pill text-dark px-3"
+                                (click)="playSelectedPodcast()">
+                                Play Podcast
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                                (click)="togglePodcastFollow(selectedPodcast)">
+                                {{ selectedPodcast.isFollowed ? 'Unfollow' : 'Follow' }}
                             </button>
                         </div>
+                    </div>
+
+                    <div *ngIf="isPodcastLoading" class="d-flex justify-content-center py-3">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+
+                    <div *ngIf="podcastError && !isPodcastLoading" class="text-muted small py-2">{{ podcastError }}</div>
+
+                    <div class="podcast-episode-list" *ngIf="!isPodcastLoading && !podcastError">
+                        <button type="button" class="podcast-episode-item" *ngFor="let episode of selectedPodcastEpisodes"
+                            (click)="playPodcastEpisode(episode)">
+                            <span class="episode-title text-truncate">{{ episode.title }}</span>
+                            <span class="episode-meta text-truncate">{{ podcastEpisodeMeta(episode) }}</span>
+                            <i class="bi bi-play-fill"></i>
+                        </button>
                     </div>
                 </div>
             </section>
@@ -248,3 +290,4 @@
         </div>
     </div>
 </div>
+

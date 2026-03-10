@@ -2,11 +2,12 @@ import { Injectable } from '@angular/core';
 import { ApiService } from './api';
 import { TokenService } from './token';
 import { StateService } from './state.service';
-import { BehaviorSubject, Observable, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 import { catchError, tap, timeout } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { hasRole, resolvePrimaryRole } from '../utils/role.util';
 import { PremiumService } from './premium.service';
+import { PlayerService } from './player.service';
 
 interface AuthTokenResponse {
   tokenType: string;
@@ -22,15 +23,18 @@ interface AuthTokenResponse {
 })
 export class AuthService {
   private readonly USER_KEY = 'revplay_user';
+  private readonly USER_ID_KEY = 'revplay_user_id';
   private currentUserSubject = new BehaviorSubject<any>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
+  private isHydratingProfile = false;
 
   constructor(
     private apiService: ApiService,
     private tokenService: TokenService,
     private stateService: StateService,
     private router: Router,
-    private premiumService: PremiumService
+    private premiumService: PremiumService,
+    private playerService: PlayerService
   ) {
     this.checkAuthStatus();
   }
@@ -41,13 +45,20 @@ export class AuthService {
       const storedUser = this.normalizeUserObject(this.getStoredUser());
       if (storedUser) {
         this.currentUserSubject.next(storedUser);
+        localStorage.setItem(this.USER_KEY, JSON.stringify(storedUser));
+        this.storeUserId(storedUser);
         this.syncArtistContext(storedUser);
+        this.hydrateCurrentUserProfile();
+        this.logSessionResolution('checkAuthStatus', storedUser);
       } else {
         this.currentUserSubject.next({ isAuthenticated: true, role: 'LISTENER' });
         this.stateService.setArtistId(null);
+        this.hydrateCurrentUserProfile();
+        this.logSessionResolution('checkAuthStatus:noStoredUser', null);
       }
     } else {
       this.premiumService.clearStatus();
+      localStorage.removeItem(this.USER_ID_KEY);
     }
   }
 
@@ -66,20 +77,19 @@ export class AuthService {
   }
 
   logout(): Observable<any> {
-    return this.apiService.post<any>('/auth/logout', {}).pipe(
-      tap(() => this.performLogoutCleanup()),
-      catchError(err => {
-        this.performLogoutCleanup();
-        return throwError(() => err);
-      })
-    );
+    this.performLogoutCleanup();
+    return of({ success: true });
   }
 
   private performLogoutCleanup() {
+    this.playerService.reset(true);
     this.tokenService.clearTokens();
     this.currentUserSubject.next(null);
     localStorage.removeItem(this.USER_KEY);
+    localStorage.removeItem(this.USER_ID_KEY);
     localStorage.removeItem('revplay_last_song');
+    localStorage.removeItem('revplay_user_email_map');
+    localStorage.removeItem('revplay_pending_registration_logs');
     this.stateService.setArtistId(null);
     this.premiumService.clearStatus();
     this.router.navigate(['/auth/login']);
@@ -122,20 +132,82 @@ export class AuthService {
   }
 
   changePassword(data: any): Observable<any> {
-    return this.apiService.post<any>('/auth/change-password', data);
+    return this.apiService.postRaw<any>('/auth/change-password', data);
   }
 
   private setSession(authData: AuthTokenResponse): void {
     this.tokenService.setTokens(authData.accessToken, authData.refreshToken);
+    localStorage.removeItem('revplay_user_email_map');
+    localStorage.removeItem('revplay_pending_registration_logs');
     this.premiumService.refreshStatus().subscribe({ error: () => { } });
     const normalizedUser = this.normalizeUserObject(authData.user) ?? this.normalizeUserObject(this.getStoredUser());
     if (normalizedUser) {
       this.currentUserSubject.next(normalizedUser);
       localStorage.setItem(this.USER_KEY, JSON.stringify(normalizedUser));
+      this.storeUserId(normalizedUser);
       this.syncArtistContext(normalizedUser);
+      this.hydrateCurrentUserProfile();
+      this.playerService.restoreLastPlayback();
+      this.logSessionResolution('setSession', normalizedUser);
     } else {
       this.stateService.setArtistId(null);
+      this.hydrateCurrentUserProfile();
+      this.logSessionResolution('setSession:noUser', null);
     }
+  }
+
+  private hydrateCurrentUserProfile(): void {
+    if (this.isHydratingProfile || !this.tokenService.hasToken()) {
+      return;
+    }
+
+    const userId = this.resolveProfileUserId();
+    if (!userId) {
+      return;
+    }
+
+    this.isHydratingProfile = true;
+    this.apiService.get<any>(`/profile/${userId}`).pipe(
+      catchError(() => of(null))
+    ).subscribe((profilePayload) => {
+      this.isHydratingProfile = false;
+      if (!profilePayload || typeof profilePayload !== 'object') {
+        return;
+      }
+
+      const current = this.currentUserSubject.value ?? this.getStoredUser() ?? {};
+      const merged = this.normalizeUserObject({
+        ...current,
+        ...profilePayload,
+        user: {
+          ...(current?.user ?? {}),
+          ...(profilePayload?.user ?? {})
+        },
+        profile: {
+          ...(current?.profile ?? {}),
+          ...(profilePayload?.profile ?? {})
+        }
+      }) ?? {
+        ...current,
+        ...profilePayload
+      };
+
+      this.currentUserSubject.next(merged);
+      localStorage.setItem(this.USER_KEY, JSON.stringify(merged));
+      this.syncArtistContext(merged);
+      this.logSessionResolution('hydrateCurrentUserProfile', merged);
+    });
+  }
+
+  private resolveProfileUserId(): number | null {
+    const currentSnapshotId = Number(this.currentUserSubject.value?.userId ?? this.currentUserSubject.value?.id ?? 0);
+    if (currentSnapshotId > 0) {
+      return currentSnapshotId;
+    }
+
+    const stored = this.getStoredUser();
+    const storedUserId = Number(stored?.userId ?? stored?.id ?? 0);
+    return storedUserId > 0 ? storedUserId : null;
   }
 
   getCurrentUserSnapshot(): any {
@@ -151,6 +223,7 @@ export class AuthService {
     const merged = this.normalizeUserObject({ ...current, ...(partial ?? {}) }) ?? { ...current, ...(partial ?? {}) };
     this.currentUserSubject.next(merged);
     localStorage.setItem(this.USER_KEY, JSON.stringify(merged));
+    this.storeUserId(merged);
     this.syncArtistContext(merged);
   }
 
@@ -164,6 +237,25 @@ export class AuthService {
     return '/home';
   }
 
+  getCurrentUserId(): number {
+    const fromMemory = this.getUserId(this.currentUserSubject.value ?? {});
+    if (fromMemory && fromMemory > 0) {
+      return fromMemory;
+    }
+    const stored = this.getStoredUser();
+    const fromStored = this.getUserId(stored ?? {});
+    if (fromStored && fromStored > 0) {
+      return fromStored;
+    }
+    try {
+      const raw = localStorage.getItem(this.USER_ID_KEY);
+      const parsed = Number(raw ?? 0);
+      return parsed > 0 ? Math.floor(parsed) : 0;
+    } catch {
+      return 0;
+    }
+  }
+
   private getStoredUser(): any | null {
     const rawUser = localStorage.getItem(this.USER_KEY);
     if (!rawUser) {
@@ -175,6 +267,13 @@ export class AuthService {
     } catch {
       localStorage.removeItem(this.USER_KEY);
       return null;
+    }
+  }
+
+  private storeUserId(user: any): void {
+    const userId = this.getUserId(user);
+    if (userId && userId > 0) {
+      localStorage.setItem(this.USER_ID_KEY, String(Math.floor(userId)));
     }
   }
 
@@ -288,12 +387,29 @@ export class AuthService {
     const artistIdFromUser = this.getArtistIdFromUserLike(user);
     const artistIdFromToken = this.getArtistIdFromToken();
     const artistId = artistIdFromUser ?? artistIdFromToken;
+    const profileImageUrl = String(
+      user?.profileImageUrl ??
+      user?.imageUrl ??
+      user?.avatar ??
+      user?.profilePicture ??
+      user?.profilePictureUrl ??
+      user?.profileImage ??
+      user?.avatarUrl ??
+      user?.image ??
+      user?.user?.profileImageUrl ??
+      user?.user?.imageUrl ??
+      user?.user?.avatar ??
+      user?.user?.profilePicture ??
+      ''
+    ).trim();
+
     return {
       ...user,
       userId: resolvedUserId ?? user?.userId,
       id: resolvedUserId ?? user?.id,
       role: role || user.role || '',
-      artistId: artistId ?? user?.artistId
+      artistId: artistId ?? user?.artistId,
+      profileImageUrl
     };
   }
 
@@ -431,5 +547,39 @@ export class AuthService {
     }
 
     return null;
+  }
+
+  private shouldLogSessionDebug(): boolean {
+    try {
+      return typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    } catch {
+      return false;
+    }
+  }
+
+  private logSessionResolution(context: string, user: any): void {
+    if (!this.shouldLogSessionDebug()) {
+      return;
+    }
+
+    const snapshotUser = user ?? this.getStoredUser();
+    const resolvedRole = resolvePrimaryRole(snapshotUser);
+    const resolvedUserId = this.getUserId(snapshotUser);
+    const resolvedArtistId = this.getArtistIdFromUserLike(snapshotUser);
+    const tokenUserId = this.getUserIdFromToken();
+    const tokenArtistId = this.getArtistIdFromToken();
+    const mappedArtistId = this.stateService.getArtistIdForUser(resolvedUserId);
+
+    console.info('[RevPlay session]', {
+      context,
+      resolvedRole,
+      resolvedUserId,
+      resolvedArtistId,
+      tokenUserId,
+      tokenArtistId,
+      mappedArtistId,
+      stateArtistId: this.stateService.artistId,
+      username: String(snapshotUser?.username ?? '').trim() || undefined
+    });
   }
 }

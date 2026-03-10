@@ -10,6 +10,7 @@ import { StateService } from '../../core/services/state.service';
 import { AuthService } from '../../core/services/auth';
 import { resolveHttpErrorMessage } from '../../core/utils/error-message.util';
 import { ApiService } from '../../core/services/api';
+import { hasRole } from '../../core/utils/role.util';
 
 type ArtistType = 'MUSIC' | 'PODCAST' | 'BOTH';
 type SocialPlatform = 'INSTAGRAM' | 'TWITTER' | 'YOUTUBE' | 'SPOTIFY' | 'WEBSITE' | 'OTHER';
@@ -23,6 +24,7 @@ type SocialPlatform = 'INSTAGRAM' | 'TWITTER' | 'YOUTUBE' | 'SPOTIFY' | 'WEBSITE
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ProfileStudioComponent implements OnInit {
+  private readonly artistProfileImageCacheKey = 'revplay_artist_profile_image_cache_v1';
   artistId: number | null = null;
   currentUserId: number | null = null;
   isLoading = true;
@@ -120,8 +122,18 @@ export class ProfileStudioComponent implements OnInit {
           return of(null);
         }
 
+        const currentUser = this.authService.getCurrentUserSnapshot();
         const userId = Number(this.currentUserId ?? 0);
         if (userId <= 0) {
+          return of({
+            profilePictureUrl: imageUrl,
+            fullName: this.resolveCurrentDisplayName() || 'Artist',
+            bio: '',
+            country: ''
+          });
+        }
+
+        if (hasRole(currentUser, 'ARTIST')) {
           return of({
             profilePictureUrl: imageUrl,
             fullName: this.resolveCurrentDisplayName() || 'Artist',
@@ -156,6 +168,7 @@ export class ProfileStudioComponent implements OnInit {
         this.profileImageLoadError = false;
         this.isUploadingProfileImage = false;
         this.profileImageUploadProgress = 100;
+        this.cacheProfileImageForCurrentUser(this.profilePictureUrl, file);
         this.authService.updateCurrentUser({ profilePictureUrl: this.profilePictureUrl });
         this.successMessage = 'Profile image uploaded.';
         this.cdr.markForCheck();
@@ -408,12 +421,7 @@ export class ProfileStudioComponent implements OnInit {
   private initializeUserProfileContext(): void {
     const currentUser = this.authService.getCurrentUserSnapshot();
     this.currentUserId = Number(currentUser?.userId ?? currentUser?.id ?? 0) || null;
-    this.profilePictureUrl = String(
-      currentUser?.profilePictureUrl ??
-      currentUser?.profileImageUrl ??
-      currentUser?.avatarUrl ??
-      ''
-    ).trim();
+    this.profilePictureUrl = this.resolveArtistProfileImage(currentUser);
     this.profileImageLoadError = false;
 
     if (!this.currentUserId || this.currentUserId <= 0) {
@@ -421,13 +429,19 @@ export class ProfileStudioComponent implements OnInit {
       return;
     }
 
+    if (hasRole(currentUser, 'ARTIST')) {
+      this.cdr.markForCheck();
+      return;
+    }
+
     this.apiService.get<any>(`/profile/${this.currentUserId}`).pipe(
       catchError(() => of(null))
     ).subscribe((profile) => {
-      const fromProfile = String(profile?.profilePictureUrl ?? '').trim();
+      const fromProfile = this.resolveArtistProfileImage(profile);
       if (fromProfile) {
         this.profilePictureUrl = fromProfile;
         this.profileImageLoadError = false;
+        this.cacheProfileImageForCurrentUser(fromProfile);
         this.authService.updateCurrentUser({ profilePictureUrl: fromProfile });
       }
       this.cdr.markForCheck();
@@ -510,6 +524,13 @@ export class ProfileStudioComponent implements OnInit {
             artistType: (profile?.artistType ?? 'BOTH') as ArtistType
           };
           this.isVerified = !!profile?.verified;
+          const resolvedProfileImage = this.resolveArtistProfileImage(profile);
+          if (resolvedProfileImage) {
+            this.profilePictureUrl = resolvedProfileImage;
+            this.profileImageLoadError = false;
+            this.cacheProfileImageForCurrentUser(resolvedProfileImage);
+            this.authService.updateCurrentUser({ profilePictureUrl: resolvedProfileImage, artistId: this.artistId });
+          }
         }
 
         this.summary = summary;
@@ -705,5 +726,103 @@ export class ProfileStudioComponent implements OnInit {
       const candidates = [item?.username, item?.title, item?.artistName, item?.displayName, item?.name];
       return candidates.some((value) => String(value ?? '').trim().toLowerCase() === normalizedUsername);
     }) ?? artistItems[0] ?? null;
+  }
+
+  private resolveArtistProfileImage(value: any): string {
+    const candidates = [
+      value?.profilePictureUrl,
+      value?.profileImageUrl,
+      value?.profilePictureFileName,
+      value?.profileImageFileName,
+      value?.profilePicture,
+      value?.profileImage,
+      value?.avatarUrl,
+      value?.avatarFileName,
+      value?.avatar,
+      value?.imageUrl,
+      value?.imageFileName,
+      value?.imageName,
+      value?.image,
+      value?.user?.profilePictureUrl,
+      value?.user?.profileImageUrl,
+      value?.user?.profilePictureFileName,
+      value?.user?.profileImageFileName,
+      value?.user?.profilePicture,
+      value?.user?.profileImage,
+      value?.user?.avatarUrl,
+      value?.user?.avatarFileName,
+      value?.user?.avatar,
+      value?.user?.imageUrl
+    ];
+
+    for (const candidate of candidates) {
+      const raw = String(candidate ?? '').trim();
+      if (!raw) {
+        continue;
+      }
+      const resolved = this.artistService.resolveImageUrl(raw);
+      if (resolved) {
+        return resolved;
+      }
+    }
+
+    return '';
+  }
+
+  private cacheProfileImageForCurrentUser(imageUrl: string, file: File | null = null): void {
+    const userId = Number(this.currentUserId ?? 0);
+    const normalizedImageUrl = String(imageUrl ?? '').trim();
+    if (userId <= 0 && !file) {
+      return;
+    }
+
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result ?? '').trim();
+        if (!result.startsWith('data:image/')) {
+          return;
+        }
+        this.writeProfileImageCache(userId, result);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    if (normalizedImageUrl) {
+      this.writeProfileImageCache(userId, normalizedImageUrl);
+    }
+  }
+
+  private writeProfileImageCache(userId: number, imageUrl: string): void {
+    const normalizedUserId = Number(userId ?? 0);
+    const normalizedImageUrl = String(imageUrl ?? '').trim();
+    if (
+      normalizedUserId <= 0 ||
+      !normalizedImageUrl ||
+      this.isProtectedFileUrl(normalizedImageUrl)
+    ) {
+      return;
+    }
+
+    try {
+      const raw = localStorage.getItem(this.artistProfileImageCacheKey);
+      const parsed = raw ? JSON.parse(raw) : {};
+      const next = parsed && typeof parsed === 'object' ? parsed : {};
+      next[String(normalizedUserId)] = normalizedImageUrl;
+      localStorage.setItem(this.artistProfileImageCacheKey, JSON.stringify(next));
+    } catch {
+      // Ignore cache write failures.
+    }
+  }
+
+  private isProtectedFileUrl(value: string): boolean {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    if (!normalized) {
+      return false;
+    }
+    if (normalized.startsWith('data:image/')) {
+      return false;
+    }
+    return normalized.includes('/api/v1/files/') || normalized.includes('/files/');
   }
 }

@@ -5,28 +5,55 @@
                 <a routerLink="/admin-studio/dashboard" class="text-white text-decoration-none" aria-label="Back to dashboard">
                     <i class="bi bi-arrow-left"></i>
                 </a>
-                <span>Ads Upload</span>
+                <span>Ads Manager</span>
             </h1>
-            <p class="text-muted mb-0">Upload and manage audio advertisements for non-premium playback.</p>
+            <p class="text-muted mb-0">Admin Studio control room for sponsored audio, delivery settings, and frontend ad analytics.</p>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="metric-card">
+                <div class="metric-label">Impressions</div>
+                <div class="metric-value">{{ analyticsSummary.impressions }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="metric-card">
+                <div class="metric-label">Starts</div>
+                <div class="metric-value">{{ analyticsSummary.starts }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="metric-card">
+                <div class="metric-label">Completions</div>
+                <div class="metric-value">{{ analyticsSummary.completions }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="metric-card">
+                <div class="metric-label">Skip After Ad</div>
+                <div class="metric-value">{{ analyticsSummary.skippedAfterAd }}</div>
+            </div>
         </div>
     </div>
 
     <div class="row g-4">
-        <div class="col-lg-7">
-            <div class="card bg-secondary-panel border-0 rounded-4 p-4">
-                <h5 class="text-white fw-bold mb-3">Upload New Audio Ad</h5>
+        <div class="col-xl-6">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4 h-100">
+                <h5 class="text-white fw-bold mb-3">Upload Audio Ad</h5>
 
                 <div *ngIf="errorMessage" class="alert alert-danger bg-dark border-danger text-danger mb-3">{{ errorMessage }}</div>
                 <div *ngIf="successMessage" class="alert alert-success bg-dark border-success text-success mb-3">{{ successMessage }}</div>
 
                 <div class="row g-3">
                     <div class="col-12">
-                        <label class="form-label text-muted small">Ad Title (optional)</label>
-                        <input class="form-control custom-input" [(ngModel)]="title" maxlength="120" placeholder="Audio ad title">
+                        <label class="form-label text-muted small">Ad Title</label>
+                        <input class="form-control custom-input" [(ngModel)]="title" maxlength="120" placeholder="Mid-roll campaign title">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label text-muted small">Duration Seconds (optional)</label>
-                        <input type="number" class="form-control custom-input" [(ngModel)]="durationSeconds" min="1" placeholder="20">
+                        <label class="form-label text-muted small">Duration Seconds</label>
+                        <input type="number" class="form-control custom-input" [(ngModel)]="durationSeconds" min="5" max="20" placeholder="15">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label text-muted small">Audio File</label>
@@ -35,7 +62,7 @@
                     </div>
                 </div>
 
-                <div class="mt-4 d-flex align-items-center gap-3">
+                <div class="mt-4 d-flex align-items-center gap-3 flex-wrap">
                     <button type="button" class="btn btn-primary text-dark fw-bold px-4" [disabled]="isUploading" (click)="uploadAd()">
                         <span *ngIf="!isUploading">Upload Ad</span>
                         <span *ngIf="isUploading" class="spinner-border spinner-border-sm" role="status"></span>
@@ -45,27 +72,91 @@
             </div>
         </div>
 
-        <div class="col-lg-5">
+        <div class="col-xl-6">
             <div class="card bg-secondary-panel border-0 rounded-4 p-4 h-100">
-                <h5 class="text-white fw-bold mb-3">Current Audio Ad</h5>
+                <h5 class="text-white fw-bold mb-3">Uploaded Ad</h5>
 
-                <div *ngIf="isLoading" class="d-flex justify-content-center py-4">
-                    <div class="spinner-border text-primary" role="status"></div>
-                </div>
-
-                <div *ngIf="!isLoading && currentAd; else emptyCurrentAd">
-                    <div class="small text-muted text-uppercase">Title</div>
-                    <div class="text-white mb-3">{{ currentAd?.title || 'Audio Advertisement' }}</div>
+                <div *ngIf="currentAd; else emptyCurrentAd">
+                    <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                        <div>
+                            <div class="small text-muted text-uppercase">Title</div>
+                            <div class="text-white">{{ currentAd?.title || 'Sponsored Audio' }}</div>
+                        </div>
+                        <span class="status-pill" [class.inactive]="currentAdStatusLabel === 'Inactive'">{{ currentAdStatusLabel }}</span>
+                    </div>
 
                     <div class="small text-muted text-uppercase">Media URL</div>
-                    <div class="text-white text-break mb-3">{{ currentAd?.mediaUrl || '-' }}</div>
+                    <div class="text-white text-break mb-3">{{ currentAd?.mediaUrl || currentAd?.audioUrl || '-' }}</div>
 
-                    <div class="small text-muted text-uppercase">Duration</div>
-                    <div class="text-white">{{ currentAd?.durationSeconds || 0 }} sec</div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            <div class="small text-muted text-uppercase">Duration</div>
+                            <div class="text-white">{{ currentAd?.durationSeconds || currentAd?.duration || 0 }} sec</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="small text-muted text-uppercase">Ad Id</div>
+                            <div class="text-white">{{ currentAd?.adId || currentAd?.id || '-' }}</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-light" [disabled]="isMutating" (click)="toggleCurrentAdStatus()">
+                            {{ currentAdStatusLabel === 'Active' ? 'Disable Ad' : 'Enable Ad' }}
+                        </button>
+                    </div>
                 </div>
+
                 <ng-template #emptyCurrentAd>
-                    <div class="text-muted">No ad details available right now.</div>
+                    <div class="text-muted">Upload an ad to manage its activation status.</div>
                 </ng-template>
+            </div>
+        </div>
+
+        <div class="col-xl-7">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="text-white fw-bold m-0">Activation Flow</h5>
+                    <span class="text-muted small">Admin endpoints only</span>
+                </div>
+
+                <div class="inventory-list">
+                    <div class="inventory-item">
+                        <div>
+                            <div class="text-white fw-semibold">Upload</div>
+                            <div class="text-muted small text-break">POST /admin/ads/upload</div>
+                        </div>
+                    </div>
+                    <div class="inventory-item">
+                        <div>
+                            <div class="text-white fw-semibold">Activate</div>
+                            <div class="text-muted small text-break">PATCH /admin/ads/{{ '{' }}id{{ '}' }}/activate</div>
+                        </div>
+                    </div>
+                    <div class="inventory-item">
+                        <div>
+                            <div class="text-white fw-semibold">Deactivate</div>
+                            <div class="text-muted small text-break">PATCH /admin/ads/{{ '{' }}id{{ '}' }}/deactivate</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-5">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4 h-100">
+                <h5 class="text-white fw-bold mb-3">Recent Ad Analytics</h5>
+
+                <div *ngIf="analyticsSummary.latestEvents.length === 0" class="text-muted">
+                    No frontend ad events have been recorded yet.
+                </div>
+
+                <div *ngIf="analyticsSummary.latestEvents.length > 0" class="analytics-list">
+                    <div class="analytics-item" *ngFor="let event of analyticsSummary.latestEvents">
+                        <div class="text-white small fw-semibold">{{ event.type }}</div>
+                        <div class="text-muted small">{{ event.adTitle || 'Sponsored Audio' }}</div>
+                        <div class="text-muted tiny">{{ event.occurredAt | date:'medium' }}</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

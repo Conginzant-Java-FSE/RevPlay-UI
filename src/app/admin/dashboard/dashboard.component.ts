@@ -114,15 +114,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
               .filter((log: any) => !this.isSmokeEntityText(log?.actorName) && !this.isSmokeEntityText(log?.details))
               .slice(0, 10);
 
-            this.recentRegistrations = enrichedLogs
+            const registrationLogs = enrichedLogs
               .filter((log: any) => this.isRegistrationAction(log))
               .slice(0, 8);
 
             this.partialWarning = failedSections.length > 0
               ? `Some sections could not be loaded: ${failedSections.join(', ')}.`
               : null;
-            this.isLoading = false;
-            this.cdr.markForCheck();
+
+            if (registrationLogs.length > 0) {
+              this.recentRegistrations = registrationLogs;
+              this.isLoading = false;
+              this.cdr.markForCheck();
+              return;
+            }
+
+            this.adminService.getUsersPage(0, 12, '').pipe(
+              catchError(() => of({ content: [] }))
+            ).subscribe((page: any) => {
+              const users = Array.isArray(page?.content) ? page.content : [];
+              this.recentRegistrations = this.normalizeRegistrationFallback(users).slice(0, 8);
+              this.isLoading = false;
+              this.cdr.markForCheck();
+            });
           },
           error: () => {
             this.metrics = this.normalizeMetrics(metrics);
@@ -358,6 +372,44 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return '';
   }
 
+  private normalizeRegistrationFallback(users: any[]): any[] {
+    const source = Array.isArray(users) ? users : [];
+    return source.map((user: any) => {
+      const actorId = Number(user?.userId ?? user?.id ?? 0) || null;
+      const actorName = String(
+        user?.displayName ??
+        user?.fullName ??
+        user?.name ??
+        user?.username ??
+        (actorId ? `User #${actorId}` : 'User')
+      ).trim();
+      const actorEmail = this.normalizeEmail(
+        String(user?.email ?? user?.userEmail ?? user?.contactEmail ?? '').trim().toLowerCase()
+      );
+      const timestamp =
+        user?.createdAt ??
+        user?.createdOn ??
+        user?.createdDate ??
+        user?.registeredAt ??
+        user?.registeredOn ??
+        user?.joinedAt ??
+        user?.joinDate ??
+        user?.signupDate ??
+        user?.signUpDate ??
+        user?.updatedAt ??
+        null;
+      return {
+        actorId,
+        actorName: actorName || 'User',
+        actorEmail: actorEmail || '-',
+        actionType: 'REGISTER',
+        details: 'User registered',
+        entityType: 'USER',
+        timestamp
+      };
+    });
+  }
+
   private enrichTopContentWithSongDetails(items: any[], topArtistNameById: Map<number, string>) {
     const source = Array.isArray(items) ? items : [];
     if (source.length === 0) {
@@ -434,33 +486,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return of([]);
     }
 
-    const actorIds = Array.from(new Set(
-      source
-        .filter((log: any) => Number(log?.actorId ?? 0) > 0 && !this.normalizeEmail(log?.actorEmail))
-        .map((log: any) => Number(log?.actorId ?? 0))
-    )).slice(0, 40);
-
-    if (actorIds.length === 0) {
-      return of(source);
-    }
-
-    const emailRequests = actorIds.map((actorId) =>
-      this.fetchProfileEmail(actorId).pipe(
-        map((email) => ({ actorId, email })),
-        catchError(() => of({ actorId, email: '' }))
-      )
-    );
-
-    return forkJoin(emailRequests).pipe(
-      map((entries) => {
+    return this.adminService.getUsersPage(0, 20, '').pipe(
+      catchError(() => of({ content: [] })),
+      map((page: any) => {
+        const users = Array.isArray(page?.content) ? page.content : [];
         const emailByActorId = new Map<number, string>();
-        for (const entry of entries) {
-          const email = this.normalizeEmail(entry?.email);
+
+        for (const user of users) {
+          const actorId = Number(user?.userId ?? user?.id ?? 0);
+          if (actorId <= 0) {
+            continue;
+          }
+          const email = this.normalizeEmail(this.extractEmailFromAny(user));
           if (!email) {
             continue;
           }
-          emailByActorId.set(Number(entry.actorId), email);
-          this.persistCachedEmailByUserId(Number(entry.actorId), email);
+          emailByActorId.set(actorId, email);
+          this.persistCachedEmailByUserId(actorId, email);
         }
 
         return source.map((log: any) => {
@@ -468,39 +510,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
           if (currentEmail) {
             return log;
           }
+
           const actorId = Number(log?.actorId ?? 0);
           const mappedEmail = this.normalizeEmail(emailByActorId.get(actorId) ?? this.getCachedEmailByUserId(actorId));
           if (!mappedEmail) {
             return log;
           }
+
           return { ...log, actorEmail: mappedEmail };
         });
-      })
-    );
-  }
-
-  private fetchProfileEmail(userId: number) {
-    const normalizedUserId = Number(userId ?? 0);
-    if (!normalizedUserId) {
-      return of('');
-    }
-
-    return this.adminService.getUserById(normalizedUserId).pipe(
-      map((response) => response?.data ?? response),
-      map((user) => this.normalizeEmail(this.extractEmailFromAny(user))),
-      catchError(() => of('')),
-      switchMap((email) => {
-        if (email) {
-          return of(email);
-        }
-
-        return this.apiService.get<any>(`/profile/${normalizedUserId}`).pipe(
-          map((response) => response?.data ?? response),
-          map((profile) => this.extractEmailFromAny(profile)),
-          map((fallbackEmail) => this.normalizeEmail(fallbackEmail)),
-          catchError(() => of(''))
-        );
-      })
+      }),
+      catchError(() => of(source))
     );
   }
 

@@ -35,9 +35,7 @@ export class JwtInterceptor implements HttpInterceptor {
         return url.includes('/auth/login') ||
             url.includes('/auth/register') ||
             url.includes('/auth/refresh') ||
-            url.includes('/auth/logout') ||
             url.includes('/auth/forgot-password') ||
-            url.includes('/auth/reset-password') ||
-            url.includes('/auth/change-password');
+            url.includes('/auth/reset-password');
     }
 }

@@ -10,6 +10,34 @@
     border: 1px solid var(--settings-card-border);
 }
 
+.settings-nav {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.settings-nav-item {
+    border: 1px solid var(--settings-option-border);
+    background: var(--settings-option-bg);
+    color: var(--text-primary);
+    border-radius: 999px;
+    padding: 0.7rem 1rem;
+    font-weight: 600;
+    transition: border-color 0.16s ease, background-color 0.16s ease, transform 0.16s ease;
+
+    &:hover {
+        transform: translateY(-1px);
+        border-color: var(--settings-option-border-hover);
+        background: var(--settings-option-bg-hover);
+    }
+
+    &.active {
+        border-color: var(--settings-option-active-border);
+        background: var(--settings-option-active-bg);
+        box-shadow: 0 10px 18px var(--settings-option-active-shadow);
+    }
+}
+
 .theme-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -70,6 +98,20 @@
 .theme-desc {
     font-size: 0.84rem;
     color: var(--text-muted);
+}
+
+.support-email-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.support-email {
+    word-break: break-word;
+}
+
+.support-form {
+    display: grid;
+    gap: 1rem;
 }
 
 @media (max-width: 700px) {

@@ -1,25 +1,26 @@
 import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { PlayerService, PlayerState } from '../../core/services/player.service';
-import { Subscription } from 'rxjs';
+import { Subscription, of } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PlaylistService } from '../../core/services/playlist.service';
 import { LikesService } from '../../core/services/likes.service';
 import { BrowseService } from '../../listener/services/browse.service';
-import { catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
 import { shareSongToPlatform, shareSongWithFallback } from '../../core/utils/song-share.util';
 import { PremiumService } from '../../core/services/premium.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { ProtectedMediaPipe } from '../../core/pipes/protected-media.pipe';
+import { AdIndicatorComponent } from '../../components/ad-indicator/ad-indicator.component';
+import { catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-player',
   templateUrl: './player.component.html',
   styleUrls: ['./player.component.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule]
+  imports: [CommonModule, FormsModule, ProtectedMediaPipe, AdIndicatorComponent]
 })
 export class PlayerComponent implements OnInit, OnDestroy {
   queuePanelOpen = false;
@@ -58,6 +59,8 @@ export class PlayerComponent implements OnInit, OnDestroy {
   private nowPlayingRequestSub!: Subscription;
   private currentUserId: number | null = null;
   private shouldOpenNowPlayingOnNextTrack = false;
+  private likedSongIds = new Set<number>();
+  private likeIdBySongId = new Map<number, number>();
 
   constructor(
     public playerService: PlayerService,
@@ -74,6 +77,7 @@ export class PlayerComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.currentUserId = this.resolveCurrentUserId();
     this.isPremiumUser = this.premiumService.isPremiumUser;
+    this.loadLikedSongs();
     this.premiumSub = this.premiumService.status$.subscribe((status) => {
       this.ngZone.run(() => {
         this.isPremiumUser = !!status?.isPremium;
@@ -111,6 +115,23 @@ export class PlayerComponent implements OnInit, OnDestroy {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  }
+
+  currentTrackImage(): string {
+    const current = this.playerState.currentItem;
+    return String(
+      current?.imageUrl ??
+      current?.coverArtUrl ??
+      current?.coverImageUrl ??
+      current?.coverUrl ??
+      current?.thumbnailUrl ??
+      current?.album?.coverArtUrl ??
+      current?.album?.coverImageUrl ??
+      current?.song?.coverArtUrl ??
+      current?.song?.coverImageUrl ??
+      current?.song?.thumbnailUrl ??
+      ''
+    ).trim();
   }
 
   onSeek(event: any) {
@@ -264,35 +285,7 @@ export class PlayerComponent implements OnInit, OnDestroy {
   }
 
   addCurrentSongToLikedSongs(): void {
-    const current = this.playerState.currentItem;
-    const songId = Number(current?.songId ?? current?.id ?? 0);
-    if (!songId || !this.currentUserId) {
-      this.actionError = 'User session not found.';
-      this.actionMessage = null;
-      return;
-    }
-
-    this.actionError = null;
-    this.actionMessage = null;
-    this.likesService.getSongLikeId(this.currentUserId, songId).subscribe({
-      next: (existingLikeId) => {
-        if (existingLikeId) {
-          this.actionMessage = 'Song is already in your liked songs.';
-          return;
-        }
-        this.likesService.likeSong(songId).subscribe({
-          next: () => {
-            this.actionMessage = 'Added to liked songs.';
-          },
-          error: () => {
-            this.actionError = 'Failed to add this song to liked songs.';
-          }
-        });
-      },
-      error: () => {
-        this.actionError = 'Failed to verify liked songs state.';
-      }
-    });
+    this.toggleCurrentSongLike();
   }
 
   openAddToPlaylistPicker(): void {
@@ -360,17 +353,63 @@ export class PlayerComponent implements OnInit, OnDestroy {
     });
   }
 
-  hideCurrentSong(): void {
-    const queueId = Number(this.playerState.currentItem?.queueId ?? 0);
-    if (queueId > 0) {
-      this.playerService.removeFromQueue(queueId);
-      this.actionError = null;
-      this.actionMessage = 'Song hidden from current queue.';
+
+  isCurrentSongLiked(): boolean {
+    const songId = Number(this.playerState.currentItem?.songId ?? this.playerState.currentItem?.id ?? 0);
+    return songId > 0 && this.likedSongIds.has(songId);
+  }
+
+  toggleCurrentSongLike(): void {
+    const current = this.playerState.currentItem;
+    const songId = Number(current?.songId ?? current?.id ?? 0);
+    if (!songId || !this.currentUserId) {
+      this.actionError = 'User session not found.';
+      this.actionMessage = null;
       return;
     }
-    this.actionError = 'Hide option is available when this song is in queue/playlist.';
+
+    this.actionError = null;
     this.actionMessage = null;
+
+    if (this.likedSongIds.has(songId)) {
+      const cachedLikeId = this.likeIdBySongId.get(songId);
+      if (cachedLikeId) {
+        this.unlikeSong(songId, cachedLikeId);
+        return;
+      }
+
+      this.likesService.getSongLikeId(this.currentUserId, songId).subscribe({
+        next: (resolvedLikeId) => {
+          if (!resolvedLikeId) {
+            this.likedSongIds.delete(songId);
+            this.likeIdBySongId.delete(songId);
+            this.actionMessage = 'Removed from liked songs.';
+            return;
+          }
+          this.unlikeSong(songId, resolvedLikeId);
+        },
+        error: () => {
+          this.actionError = 'Failed to verify liked songs state.';
+        }
+      });
+      return;
+    }
+
+    this.likesService.likeSong(songId).subscribe({
+      next: (response) => {
+        const likeId = Number(response?.id ?? response?.likeId ?? 0);
+        this.likedSongIds.add(songId);
+        if (likeId > 0) {
+          this.likeIdBySongId.set(songId, likeId);
+        }
+        this.actionMessage = 'Added to liked songs.';
+      },
+      error: () => {
+        this.actionError = 'Failed to add this song to liked songs.';
+      }
+    });
   }
+
 
   closePremiumFeatureModal(): void {
     this.showPremiumFeatureModal = false;
@@ -478,6 +517,51 @@ export class PlayerComponent implements OnInit, OnDestroy {
     return Math.max(0, Math.min(100, (current / duration) * 100));
   }
 
+  get adCountdownSeconds(): number {
+    if (!this.playerState.isAdPlaying) {
+      return 0;
+    }
+    return Math.max(0, Math.ceil(Number(this.playerState.duration ?? 0) - Number(this.playerState.currentTime ?? 0)));
+  }
+
+  get progressStartLabel(): string {
+    if (this.playerState.isAdPlaying) {
+      return '0:00';
+    }
+    return this.formatTime(this.playerState.currentTime);
+  }
+
+  get progressEndLabel(): string {
+    if (this.playerState.isAdPlaying) {
+      return this.formatTime(this.adCountdownSeconds);
+    }
+    return this.formatTime(this.playerState.duration);
+  }
+
+  get upcomingQueueItems(): Array<{ item: any; queueIndex: number }> {
+    const queue = Array.isArray(this.playerState.queue) ? this.playerState.queue : [];
+    if (queue.length === 0) {
+      return [];
+    }
+    const startIndex = Math.max(0, Number(this.playerState.currentIndex ?? -1) + 1);
+    return queue.slice(startIndex).map((item: any, index: number) => ({
+      item,
+      queueIndex: startIndex + index
+    }));
+  }
+
+  get manualUpNextItems(): Array<{ item: any; queueIndex: number }> {
+    return this.upcomingQueueItems.filter((entry) => !this.isAutoplayQueueItem(entry.item));
+  }
+
+  get autoplayUpNextItems(): Array<{ item: any; queueIndex: number }> {
+    return this.upcomingQueueItems.filter((entry) => this.isAutoplayQueueItem(entry.item));
+  }
+
+  isAutoplayQueueItem(item: any): boolean {
+    return !!item?.isAutoplay || String(item?.queueSection ?? '').toUpperCase() === 'AUTOPLAY';
+  }
+
   private resolveCurrentUserId(): number | null {
     const rawUser = localStorage.getItem('revplay_user');
     if (!rawUser) {
@@ -529,5 +613,48 @@ export class PlayerComponent implements OnInit, OnDestroy {
       return false;
     }
     return window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  private loadLikedSongs(): void {
+    if (!this.currentUserId) {
+      return;
+    }
+
+    this.likesService.getUserLikes(this.currentUserId, 'SONG', 0, 400).subscribe({
+      next: (likes) => {
+        const nextLikedIds = new Set<number>();
+        const nextLikeIds = new Map<number, number>();
+        for (const like of likes ?? []) {
+          const songId = Number(like?.likeableId ?? 0);
+          if (songId <= 0) {
+            continue;
+          }
+          nextLikedIds.add(songId);
+          const likeId = Number(like?.id ?? 0);
+          if (likeId > 0) {
+            nextLikeIds.set(songId, likeId);
+          }
+        }
+        this.likedSongIds = nextLikedIds;
+        this.likeIdBySongId = nextLikeIds;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        // Ignore like preload failures.
+      }
+    });
+  }
+
+  private unlikeSong(songId: number, likeId: number): void {
+    this.likesService.unlikeByLikeId(likeId).subscribe({
+      next: () => {
+        this.likedSongIds.delete(songId);
+        this.likeIdBySongId.delete(songId);
+        this.actionMessage = 'Removed from liked songs.';
+      },
+      error: () => {
+        this.actionError = 'Failed to remove this song from liked songs.';
+      }
+    });
   }
 }

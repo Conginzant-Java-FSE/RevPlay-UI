@@ -78,7 +78,7 @@
                                     class="border-bottom border-light border-opacity-10 py-3">
                                     <td class="ps-0 py-3">
                                         <div class="track-cell">
-                                            <img [src]="track.imageUrl || '/assets/images/placeholder-album.png'"
+                                            <img [src]="((track.imageUrl | protectedMedia | async) || '/assets/images/placeholder-album.png')"
                                                 (error)="onTrackImageError($event)" alt="Track cover" class="track-thumb"
                                                 loading="lazy">
                                             <div class="track-meta">
@@ -104,18 +104,31 @@
                 <div class="bg-secondary-panel rounded-4 p-4 h-100 shadow-sm">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="fw-bold m-0 text-white">Performance Trends</h5>
-                        <button class="btn btn-link text-muted p-0 text-decoration-none hover-white"
-                            routerLink="/creator-studio/manage-albums">Albums</button>
                     </div>
 
-                    <div class="trend-list" *ngIf="trendPoints.length > 0">
-                        <div class="trend-row" *ngFor="let point of trendPoints | slice:0:8">
-                            <div class="text-muted small">{{ point.date || point.label || point.period || '-' }}</div>
-                            <div class="text-white fw-bold">{{ point.playCount || point.plays || point.value || 0 }}</div>
+                    <div class="trend-chart" *ngIf="trendListSource.length > 0">
+                        <canvas #trendChart aria-label="Performance trends chart" role="img"></canvas>
+                    </div>
+
+                    <div class="trend-list" *ngIf="trendListSource.length > 0">
+                        <div class="trend-row" *ngFor="let point of trendListSource | slice:0:8; let i = index">
+                            <div class="trend-meta">
+                                <div class="trend-name text-white text-truncate">{{ getTrendLabel(point, i) }}</div>
+                                <div class="trend-count text-muted">{{ getTrendValue(point) }} plays</div>
+                            </div>
+                            <div class="trend-meter">
+                                <div class="progress bg-dark-subtle">
+                                    <div class="progress-bar" role="progressbar"
+                                        [style.width.%]="getTrendPercent(point)"
+                                        [attr.aria-valuenow]="getTrendPercent(point)"
+                                        aria-valuemin="0"
+                                        aria-valuemax="100"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div *ngIf="trendPoints.length === 0" class="text-center py-5 text-muted">
+                    <div *ngIf="trendListSource.length === 0" class="text-center py-5 text-muted">
                         <p class="m-0">Trend data not available yet.</p>
                     </div>
                 </div>

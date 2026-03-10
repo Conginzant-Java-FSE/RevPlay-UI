@@ -1,0 +1,18 @@
+:host {
+  display: block;
+}
+
+.song-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: nowrap;
+  overflow: visible;
+  padding-bottom: 0.4rem;
+  scroll-behavior: smooth;
+  width: max-content;
+}
+
+.song-col {
+  flex: 0 0 auto;
+  width: clamp(170px, 18vw, 200px);
+}

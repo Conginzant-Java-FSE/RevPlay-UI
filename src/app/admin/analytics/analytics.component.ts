@@ -50,6 +50,8 @@ export class AdminAnalyticsComponent implements OnInit, AfterViewInit, OnDestroy
   ];
 
   conversionRate = 0;
+  conversionRateLoading = false;
+  conversionRateError: string | null = null;
 
   private revenueChart: any = null;
   private mixesChart: any = null;
@@ -62,7 +64,7 @@ export class AdminAnalyticsComponent implements OnInit, AfterViewInit, OnDestroy
   ) { }
 
   ngOnInit(): void {
-    this.loadAnalytics();
+    this.refreshAnalytics();
   }
 
   ngAfterViewInit(): void {
@@ -72,6 +74,11 @@ export class AdminAnalyticsComponent implements OnInit, AfterViewInit, OnDestroy
 
   ngOnDestroy(): void {
     this.destroyCharts();
+  }
+
+  refreshAnalytics(): void {
+    this.loadAnalytics();
+    this.loadConversionRate();
   }
 
   loadAnalytics(): void {
@@ -85,17 +92,15 @@ export class AdminAnalyticsComponent implements OnInit, AfterViewInit, OnDestroy
       overview: this.adminService.getBusinessOverview().pipe(catchError(() => of(null))),
       revenue: this.adminService.getRevenueAnalytics().pipe(catchError(() => of(null))),
       topDownloads: this.adminService.getTopDownloadedSongs().pipe(catchError(() => of([]))),
-      topMixes: this.adminService.getTopMixes().pipe(catchError(() => of(null))),
-      conversionRate: this.adminService.getPremiumConversionRate().pipe(catchError(() => of(null)))
+      topMixes: this.adminService.getTopMixes().pipe(catchError(() => of(null)))
     }).subscribe({
-      next: ({ overview, revenue, topDownloads, topMixes, conversionRate }) => {
-        const hasAnyData = !!overview || !!revenue || (topDownloads?.length ?? 0) > 0 || !!topMixes || !!conversionRate;
+      next: ({ overview, revenue, topDownloads, topMixes }) => {
+        const hasAnyData = !!overview || !!revenue || (topDownloads?.length ?? 0) > 0 || !!topMixes;
 
         this.overview = this.normalizeOverview(overview);
         this.revenue = this.normalizeRevenue(revenue);
         this.topDownloads = this.normalizeTopDownloads(topDownloads);
         this.topMixes = this.normalizeTopMixes(topMixes);
-        this.conversionRate = this.normalizeConversionRate(conversionRate);
 
         this.error = hasAnyData ? null : 'Analytics data is unavailable right now.';
         this.isLoading = false;
@@ -108,6 +113,29 @@ export class AdminAnalyticsComponent implements OnInit, AfterViewInit, OnDestroy
       error: () => {
         this.isLoading = false;
         this.error = 'Failed to load analytics dashboard.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  loadConversionRate(): void {
+    if (this.conversionRateLoading) {
+      return;
+    }
+
+    this.conversionRateLoading = true;
+    this.conversionRateError = null;
+
+    this.adminService.getPremiumConversionRate().subscribe({
+      next: (data) => {
+        this.conversionRate = this.normalizeConversionRate(data);
+        this.conversionRateLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: (error) => {
+        console.error('Failed to load premium conversion rate', error);
+        this.conversionRateError = 'Unable to load conversion data';
+        this.conversionRateLoading = false;
         this.cdr.markForCheck();
       }
     });
@@ -150,37 +178,60 @@ export class AdminAnalyticsComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   private normalizeTopMixes(value: any): Array<{ label: string; value: number }> {
-    const defaults = new Map<string, number>([
-      ['Telugu Mix', 0],
-      ['Tamil Mix', 0],
-      ['Hindi Mix', 0],
-      ['English Mix', 0],
-      ['DJ Mix', 0]
-    ]);
+    const list = Array.isArray(value)
+      ? value
+      : Array.isArray(value?.data)
+        ? value.data
+        : [];
 
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        const label = String(item?.label ?? item?.mixName ?? item?.name ?? '').trim();
-        const count = Number(item?.count ?? item?.playCount ?? item?.value ?? 0);
-        if (label && defaults.has(label)) {
-          defaults.set(label, count);
-        }
-      }
-    } else if (value && typeof value === 'object') {
-      for (const [label, raw] of Object.entries(value)) {
-        const normalizedLabel = String(label ?? '').trim();
-        if (!defaults.has(normalizedLabel)) {
-          continue;
-        }
-        defaults.set(normalizedLabel, Number(raw ?? 0));
-      }
+    const normalized = list
+      .map((item: any) => ({
+        label: String(item?.label ?? item?.mixName ?? item?.playlistName ?? item?.name ?? '').trim(),
+        value: Number(item?.count ?? item?.playCount ?? item?.totalPlayCount ?? item?.value ?? 0)
+      }))
+      .filter((item: { label: string; value: number }) => item.label.length > 0 && Number.isFinite(item.value) && item.value > 0);
+
+    if (normalized.length > 0) {
+      return normalized;
     }
 
-    return Array.from(defaults.entries()).map(([label, count]) => ({ label, value: Number(count ?? 0) }));
+    return [
+      { label: 'Telugu Mix', value: 0 },
+      { label: 'Tamil Mix', value: 0 },
+      { label: 'Hindi Mix', value: 0 },
+      { label: 'English Mix', value: 0 },
+      { label: 'DJ Mix', value: 0 }
+    ];
   }
 
   private normalizeConversionRate(value: any): number {
-    return Number(value?.conversionRate ?? value?.rate ?? 0);
+    if (value === null || value === undefined) {
+      return 0;
+    }
+
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    const candidate =
+      value?.conversionRate ??
+      value?.premiumConversionRate ??
+      value?.rate ??
+      value?.percentage ??
+      value?.value ??
+      value?.data?.conversionRate ??
+      value?.data?.premiumConversionRate ??
+      value?.data?.rate ??
+      value?.data?.percentage ??
+      value?.data?.value;
+
+    const parsed = Number(candidate);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
   private async renderCharts(): Promise<void> {

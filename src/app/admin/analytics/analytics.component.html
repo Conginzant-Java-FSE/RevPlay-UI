@@ -9,7 +9,7 @@
             </h1>
             <p class="text-muted m-0">Revenue, premium conversion, and engagement overview.</p>
         </div>
-        <button type="button" class="btn btn-outline-light rounded-pill px-4" (click)="loadAnalytics()">
+        <button type="button" class="btn btn-outline-light rounded-pill px-4" (click)="refreshAnalytics()">
             <i class="bi bi-arrow-clockwise me-2"></i>Refresh
         </button>
     </div>
@@ -103,11 +103,17 @@
             <div class="col-lg-5">
                 <div class="card bg-secondary-panel border-0 rounded-4 p-4 h-100">
                     <h5 class="text-white fw-bold mb-3">Premium Conversion Rate</h5>
-                    <p class="text-muted mb-2">Premium Conversion Rate: {{ conversionRatePercent | number:'1.0-2' }}%</p>
-                    <div class="progress" role="progressbar" aria-label="Premium conversion rate"
-                        [attr.aria-valuenow]="conversionRatePercent" aria-valuemin="0" aria-valuemax="100"
-                        style="height: 14px;">
-                        <div class="progress-bar bg-success" [style.width.%]="conversionRatePercent"></div>
+
+                    <div *ngIf="conversionRateLoading" class="text-muted">Loading...</div>
+                    <div *ngIf="!conversionRateLoading && conversionRateError" class="text-danger">{{ conversionRateError }}</div>
+
+                    <div *ngIf="!conversionRateLoading && !conversionRateError">
+                        <p class="text-muted mb-2">Premium Conversion Rate: {{ conversionRatePercent | number:'1.0-2' }}%</p>
+                        <div class="progress" role="progressbar" aria-label="Premium conversion rate"
+                            [attr.aria-valuenow]="conversionRatePercent" aria-valuemin="0" aria-valuemax="100"
+                            style="height: 14px;">
+                            <div class="progress-bar bg-success" [style.width.%]="conversionRatePercent"></div>
+                        </div>
                     </div>
                 </div>
             </div>

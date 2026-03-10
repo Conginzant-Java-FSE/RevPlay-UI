@@ -1,5 +1,5 @@
-<div class="sidebar-container d-flex flex-column h-100 p-3">
-    <ul class="nav nav-pills flex-column mb-auto" *ngIf="isListener">
+<div class="sidebar-container d-flex flex-column p-3">
+    <ul class="nav nav-pills flex-column" *ngIf="isListener">
         <li class="nav-item">
             <a routerLink="/home" routerLinkActive="active-nav" [routerLinkActiveOptions]="{ exact: true }"
                 class="nav-link text-white hover-white">
@@ -89,6 +89,11 @@
         <li class="nav-item" *ngIf="isAdmin">
             <a routerLink="/admin-studio/dashboard" routerLinkActive="active-nav" class="nav-link text-white hover-white">
                 <i class="bi bi-shield-lock me-3 text-danger"></i><span>Admin Studio</span>
+            </a>
+        </li>
+        <li class="nav-item" *ngIf="isAdmin">
+            <a routerLink="/admin-studio/system-playlists" routerLinkActive="active-nav" class="nav-link text-white hover-white ps-4">
+                <i class="bi bi-collection-play me-3"></i><span>System Playlists</span>
             </a>
         </li>
         <li class="nav-item mt-2">

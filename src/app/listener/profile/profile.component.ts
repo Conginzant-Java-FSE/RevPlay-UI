@@ -11,6 +11,8 @@ import { catchError, map, switchMap, timeout } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { hasRole } from '../../core/utils/role.util';
 import { ListeningHistoryService } from '../../core/services/listening-history.service';
+import { BrowseService } from '../services/browse.service';
+import { ArtistService } from '../../core/services/artist.service';
 import { LikesService } from '../../core/services/likes.service';
 
 @Component({
@@ -53,12 +55,17 @@ export class ProfileComponent implements OnDestroy {
     private lastLoadedProfileKey: string | null = null;
     private lastLoadedUserId: number | null = null;
     private localObjectUrl: string | null = null;
+    private historySongCache = new Map<number, any>();
+    private historyPodcastCache = new Map<number, any>();
+    private historyEpisodeCache = new Map<string, any>();
 
     constructor(
         private authService: AuthService,
         private apiService: ApiService,
         private listeningHistoryService: ListeningHistoryService,
         private likesService: LikesService,
+        private browseService: BrowseService,
+        private artistService: ArtistService,
         private router: Router,
         private cdr: ChangeDetectorRef
     ) {
@@ -454,6 +461,8 @@ export class ProfileComponent implements OnDestroy {
                 this.recentlyPlayed = this.normalizeHistoryItems(recent).slice(0, 8);
                 this.playHistory = this.normalizeHistoryItems(history);
                 this.computeHistoryStats();
+                this.enrichHistoryItems(this.recentlyPlayed, 'recent');
+                this.enrichHistoryItems(this.playHistory, 'history');
                 this.isHistoryLoading = false;
                 this.cdr.markForCheck();
             },
@@ -480,27 +489,81 @@ export class ProfileComponent implements OnDestroy {
                     (item?.episodeId || episode?.episodeId ? 'PODCAST' : 'SONG')
                 ).toUpperCase();
 
-                const title = String(
-                    item?.title ??
-                    song?.title ??
-                    episode?.title ??
-                    ''
-                ).trim();
+                const songId = Number(
+                    item?.songId ??
+                    item?.trackId ??
+                    item?.contentId ??
+                    item?.id ??
+                    song?.songId ??
+                    song?.trackId ??
+                    song?.contentId ??
+                    song?.id ??
+                    0
+                );
 
-                const artistName = String(
-                    item?.artistName ??
-                    song?.artistName ??
-                    episode?.podcastName ??
-                    episode?.creatorName ??
-                    ''
-                ).trim();
+                const podcastId = Number(
+                    item?.podcastId ??
+                    episode?.podcastId ??
+                    item?.showId ??
+                    item?.seriesId ??
+                    0
+                );
+
+                const episodeId = Number(
+                    item?.episodeId ??
+                    episode?.episodeId ??
+                    item?.podcastEpisodeId ??
+                    item?.contentEpisodeId ??
+                    0
+                );
+
+                const title = this.firstNonEmpty(
+                    item?.title,
+                    item?.songTitle,
+                    item?.trackTitle,
+                    item?.contentTitle,
+                    item?.name,
+                    item?.episodeTitle,
+                    item?.podcastTitle,
+                    song?.title,
+                    song?.name,
+                    song?.trackTitle,
+                    song?.songTitle,
+                    episode?.title,
+                    episode?.name,
+                    episode?.episodeTitle
+                );
+
+                const artistName = this.firstNonEmpty(
+                    item?.artistName,
+                    item?.artist,
+                    item?.artistDisplayName,
+                    item?.creatorName,
+                    item?.uploaderName,
+                    item?.podcastName,
+                    item?.showName,
+                    song?.artistName,
+                    song?.artist,
+                    song?.artistDisplayName,
+                    song?.creatorName,
+                    song?.uploaderName,
+                    song?.artist?.name,
+                    song?.artist?.displayName,
+                    episode?.podcastName,
+                    episode?.creatorName,
+                    episode?.showName,
+                    episode?.podcastTitle
+                );
 
                 const playedAt = item?.playedAt ?? item?.timestamp ?? item?.createdAt ?? null;
-                const playDurationSeconds = Number(item?.playDurationSeconds ?? item?.durationSeconds ?? 0);
+                const playDurationSeconds = this.resolvePlayDurationSeconds(item, song, episode);
 
                 return {
                     ...item,
                     type: type === 'PODCAST' ? 'PODCAST' : 'SONG',
+                    songId: songId > 0 ? songId : null,
+                    podcastId: podcastId > 0 ? podcastId : null,
+                    episodeId: episodeId > 0 ? episodeId : null,
                     title,
                     artistName,
                     playedAt,
@@ -515,6 +578,16 @@ export class ProfileComponent implements OnDestroy {
                 const bTime = new Date(b?.playedAt ?? 0).getTime();
                 return bTime - aTime;
             });
+    }
+
+    private firstNonEmpty(...values: any[]): string {
+        for (const value of values) {
+            const text = String(value ?? '').trim();
+            if (text) {
+                return text;
+            }
+        }
+        return '';
     }
 
     private computeHistoryStats(): void {
@@ -534,6 +607,230 @@ export class ProfileComponent implements OnDestroy {
             totalDurationSeconds: Math.floor(totalDurationSeconds),
             lastPlayedAt
         };
+    }
+
+    private resolvePlayDurationSeconds(item: any, song: any, episode: any): number {
+        const raw = [
+            item?.playDurationSeconds,
+            item?.listenDurationSeconds,
+            item?.listenedSeconds,
+            item?.playedSeconds,
+            item?.progressSeconds,
+            item?.positionSeconds,
+            item?.elapsedSeconds,
+            item?.playTimeSeconds,
+            item?.durationSeconds,
+            item?.duration,
+            song?.durationSeconds,
+            song?.duration,
+            episode?.durationSeconds,
+            episode?.duration
+        ].map((value) => Number(value ?? 0)).find((value) => Number.isFinite(value) && value > 0);
+
+        if (raw) {
+            return Math.floor(raw);
+        }
+
+        if (item?.completed) {
+            const completedDuration = Number(
+                song?.durationSeconds ??
+                episode?.durationSeconds ??
+                item?.durationSeconds ??
+                0
+            );
+            return completedDuration > 0 ? Math.floor(completedDuration) : 0;
+        }
+
+        return 0;
+    }
+
+    private enrichHistoryItems(items: any[], scope: 'recent' | 'history'): void {
+        const source = Array.isArray(items) ? items : [];
+        const targets = source.filter((item) => this.isHistoryDetailsMissing(item));
+        if (targets.length === 0) {
+            return;
+        }
+
+        const requests = targets.map((item) => this.resolveHistoryItemDetails(item));
+        forkJoin(requests).subscribe((results) => {
+            const patchMap = new Map<string, any>();
+            for (const patch of results) {
+                if (patch?.key) {
+                    patchMap.set(patch.key, patch.data);
+                }
+            }
+
+            const updated = source.map((item) => {
+                const key = this.getHistoryKey(item);
+                const patch = key ? patchMap.get(key) : null;
+                return patch ? { ...item, ...patch } : item;
+            });
+
+            if (scope === 'recent') {
+                this.recentlyPlayed = updated;
+            } else {
+                this.playHistory = updated;
+                this.computeHistoryStats();
+            }
+            this.cdr.markForCheck();
+        });
+    }
+
+    private isHistoryDetailsMissing(item: any): boolean {
+        const title = String(item?.title ?? '').trim();
+        const artistName = String(item?.artistName ?? '').trim();
+        if (title && !/^(song|podcast episode)$/i.test(title) && artistName && artistName !== 'Artist' && artistName !== 'Podcast') {
+            return false;
+        }
+        return true;
+    }
+
+    private resolveHistoryItemDetails(item: any) {
+        const key = this.getHistoryKey(item);
+        if (!key) {
+            return of({ key: '', data: null });
+        }
+
+        if (item?.type === 'PODCAST') {
+            return this.resolvePodcastHistoryDetails(item).pipe(
+                map((data) => ({ key, data })),
+                catchError(() => of({ key, data: null }))
+            );
+        }
+
+        return this.resolveSongHistoryDetails(item).pipe(
+            map((data) => ({ key, data })),
+            catchError(() => of({ key, data: null }))
+        );
+    }
+
+    private resolveSongHistoryDetails(item: any) {
+        const songId = Number(item?.songId ?? 0);
+        if (songId <= 0) {
+            return of(null);
+        }
+
+        if (this.historySongCache.has(songId)) {
+            return of(this.historySongCache.get(songId));
+        }
+
+        return this.browseService.getSongById(songId).pipe(
+            map((song) => {
+                const title = this.firstNonEmpty(song?.title, song?.name, item?.title);
+                const artistName = this.firstNonEmpty(
+                    song?.artistName,
+                    song?.artist?.displayName,
+                    song?.artist?.name,
+                    song?.createdByName,
+                    song?.uploaderName,
+                    item?.artistName
+                );
+                const patch = {
+                    title: title || item?.title,
+                    artistName: artistName || item?.artistName,
+                    playDurationSeconds: this.resolvePlayDurationSeconds(item, song, null)
+                };
+                this.historySongCache.set(songId, patch);
+                return patch;
+            }),
+            catchError(() => of(null))
+        );
+    }
+
+    private resolvePodcastHistoryDetails(item: any) {
+        const podcastId = Number(item?.podcastId ?? 0);
+        const episodeId = Number(item?.episodeId ?? 0);
+        const episodeKey = `${podcastId}:${episodeId}`;
+
+        if (episodeId > 0 && this.historyEpisodeCache.has(episodeKey)) {
+            return of(this.historyEpisodeCache.get(episodeKey));
+        }
+
+        if (episodeId > 0 && podcastId > 0) {
+            return forkJoin({
+                episode: this.artistService.getPodcastEpisode(podcastId, episodeId).pipe(catchError(() => of(null))),
+                podcast: this.resolvePodcastInfo(podcastId)
+            }).pipe(
+                map(({ episode, podcast }) => {
+                    const title = this.firstNonEmpty(
+                        episode?.title,
+                        episode?.name,
+                        item?.title,
+                        item?.episodeTitle
+                    );
+                    const artistName = this.firstNonEmpty(
+                        podcast?.title,
+                        podcast?.name,
+                        podcast?.podcastName,
+                        item?.artistName,
+                        item?.podcastName
+                    );
+                    const patch = {
+                        title: title || item?.title,
+                        artistName: artistName || item?.artistName,
+                        playDurationSeconds: this.resolvePlayDurationSeconds(item, null, episode)
+                    };
+                    this.historyEpisodeCache.set(episodeKey, patch);
+                    return patch;
+                })
+            );
+        }
+
+        if (podcastId > 0) {
+            return this.resolvePodcastInfo(podcastId).pipe(
+                map((podcast) => {
+                    const artistName = this.firstNonEmpty(
+                        podcast?.title,
+                        podcast?.name,
+                        podcast?.podcastName,
+                        item?.artistName,
+                        item?.podcastName
+                    );
+                    const patch = {
+                        artistName: artistName || item?.artistName
+                    };
+                    this.historyPodcastCache.set(podcastId, patch);
+                    return patch;
+                })
+            );
+        }
+
+        return of(null);
+    }
+
+    private resolvePodcastInfo(podcastId: number) {
+        if (this.historyPodcastCache.has(podcastId)) {
+            return of(this.historyPodcastCache.get(podcastId));
+        }
+
+        return this.artistService.getPodcast(podcastId).pipe(
+            map((podcast) => {
+                const patch = {
+                    title: this.firstNonEmpty(podcast?.title, podcast?.name, podcast?.podcastName),
+                    artistName: this.firstNonEmpty(podcast?.title, podcast?.name, podcast?.podcastName)
+                };
+                this.historyPodcastCache.set(podcastId, patch);
+                return patch;
+            }),
+            catchError(() => of(null))
+        );
+    }
+
+    private getHistoryKey(item: any): string {
+        const type = String(item?.type ?? '').toUpperCase();
+        if (type === 'PODCAST') {
+            const episodeId = Number(item?.episodeId ?? 0);
+            const podcastId = Number(item?.podcastId ?? 0);
+            if (episodeId > 0) {
+                return `PODCAST:${episodeId}`;
+            }
+            if (podcastId > 0) {
+                return `PODCAST:${podcastId}`;
+            }
+            return '';
+        }
+        const songId = Number(item?.songId ?? 0);
+        return songId > 0 ? `SONG:${songId}` : '';
     }
 
     private extractLikeId(item: any): number | null {

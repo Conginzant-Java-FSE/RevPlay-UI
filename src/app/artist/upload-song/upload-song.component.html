@@ -119,11 +119,22 @@
                     </div>
                     <div class="col-md-5">
                         <label class="form-label text-muted small">New Audio File</label>
-                        <input type="file" class="form-control custom-input readable-file-input" accept=".mp3,audio/*" (change)="onReplaceAudioFileSelected($event)">
+                        <input type="file" accept=".mp3,audio/*" class="d-none" #replaceAudioPicker (change)="onReplaceAudioFileSelected($event)">
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-pill" (click)="replaceAudioPicker.click()">
+                                Choose File
+                            </button>
+                            <div class="text-white small text-truncate flex-grow-1">
+                                {{ replaceAudioFileName || audioFileName || 'No file chosen' }}
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-1">
+                            Select a song and choose a new audio file to enable replace.
+                        </small>
                     </div>
                     <div class="col-md-3">
                         <button type="button" class="btn btn-outline-light rounded-pill w-100"
-                            [disabled]="isReplacingAudio || !replaceAudioFile" (click)="replaceAudio()">
+                            [disabled]="!canReplaceAudio" (click)="replaceAudio()">
                             Replace
                         </button>
                     </div>

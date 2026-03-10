@@ -211,6 +211,12 @@
     width: 110px;
 }
 
+.extra-controls {
+    position: relative;
+    top: 16px;
+    right: 18px;
+}
+
 .repeat-one-badge {
     position: absolute;
     top: 2px;
@@ -314,8 +320,9 @@
 }
 
 .now-playing-art {
-    width: 100%;
+    width: min(100%, 340px);
     aspect-ratio: 1 / 1;
+    margin: 0 auto;
     background: var(--player-album-bg);
     border: 1px solid var(--player-album-border);
 }
@@ -344,6 +351,8 @@
 
     .extra-controls {
         justify-content: center !important;
+        top: 0;
+        right: 0;
     }
 
     .queue-panel {
@@ -364,5 +373,9 @@
         height: 100%;
         max-height: none;
         border-radius: 14px;
+    }
+
+    .now-playing-art {
+        width: min(100%, 220px);
     }
 }

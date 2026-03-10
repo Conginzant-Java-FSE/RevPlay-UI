@@ -1,0 +1,19 @@
+<section class="section-block" *ngIf="(items$ | async) as items">
+  <h2 class="section-title">Recently Played</h2>
+  <div *ngIf="items.length > 0; else emptyRecentlyPlayed" class="song-row">
+    <div class="song-col" *ngFor="let item of items">
+      <button type="button" class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100"
+        (click)="replay(item)">
+        <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+          <img [src]="((item.imageUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')"
+            class="img-fluid object-fit-cover h-100 w-100" loading="lazy" alt="Recently played cover">
+        </div>
+        <h6 class="mb-1 text-truncate">{{ item.title }}</h6>
+        <p class="text-muted small mb-0 text-truncate">{{ item.artist }}</p>
+        <span class="play-pill"><i class="bi bi-play-fill"></i></span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<ng-template #emptyRecentlyPlayed></ng-template>

@@ -2,6 +2,33 @@
     color: var(--text-primary);
 }
 
+.readable-file-input {
+    color: var(--text-primary);
+    color-scheme: auto;
+}
+
+.readable-file-input::file-selector-button {
+    color: #0f1a2d;
+    background: linear-gradient(135deg, #98adff, #f4c58e);
+    border: none;
+    border-radius: 10px;
+    padding: 0.42rem 0.8rem;
+    margin-right: 0.6rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.readable-file-input::-webkit-file-upload-button {
+    color: #0f1a2d;
+    background: linear-gradient(135deg, #98adff, #f4c58e);
+    border: none;
+    border-radius: 10px;
+    padding: 0.42rem 0.8rem;
+    margin-right: 0.6rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
 .podcast-list {
     display: grid;
     gap: 0.55rem;

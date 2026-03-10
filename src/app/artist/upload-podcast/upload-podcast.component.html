@@ -43,14 +43,14 @@
                     <div class="row g-2 mb-3">
                         <div class="col-6">
                             <label class="form-label text-muted small fw-bold">Cover Image</label>
-                            <input type="file" accept="image/*" class="form-control custom-input" (change)="onImageSelected($event)" required>
+                            <input type="file" accept="image/*" class="form-control custom-input readable-file-input" (change)="onImageSelected($event)" required>
                             <div class="cover-preview mt-2" *ngIf="imagePreview">
                                 <img [src]="imagePreview" alt="Podcast cover preview">
                             </div>
                         </div>
                         <div class="col-6">
                             <label class="form-label text-muted small fw-bold">Episode Audio</label>
-                            <input type="file" accept="audio/*" class="form-control custom-input" (change)="onAudioSelected($event)" required>
+                            <input type="file" accept="audio/*" class="form-control custom-input readable-file-input" (change)="onAudioSelected($event)" required>
                         </div>
                     </div>
 
@@ -202,7 +202,7 @@
                         <input type="date" class="form-control custom-input" [(ngModel)]="episodeCreate.releaseDate">
                     </div>
                     <div class="col-md-8">
-                        <input type="file" class="form-control custom-input" accept="audio/*,.mp3" (change)="onNewEpisodeAudioSelected($event)">
+                        <input type="file" class="form-control custom-input readable-file-input" accept="audio/*,.mp3" (change)="onNewEpisodeAudioSelected($event)">
                     </div>
                     <div class="col-md-4">
                         <button type="button" class="btn btn-outline-light rounded-pill w-100" [disabled]="isSaving || !newEpisodeAudioFile"
@@ -240,7 +240,7 @@
                             <input type="date" class="form-control custom-input" [(ngModel)]="episodeEdit.releaseDate">
                         </div>
                         <div class="col-md-8">
-                            <input type="file" class="form-control custom-input" accept="audio/*,.mp3" (change)="onReplaceAudioSelected($event)">
+                            <input type="file" class="form-control custom-input readable-file-input" accept="audio/*,.mp3" (change)="onReplaceAudioSelected($event)">
                         </div>
                         <div class="col-md-4">
                             <button type="button" class="btn btn-outline-light rounded-pill w-100"

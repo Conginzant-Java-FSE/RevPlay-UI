@@ -47,15 +47,127 @@
     </div>
 
     <div *ngIf="!isLoading && !error">
-        <section class="section-block">
-            <h2 class="section-title">Trending Now</h2>
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3">
-                <div class="col" *ngFor="let song of trendingNow">
-                    <div class="song-card-wrap">
+        <div class="music-scroll-shell">
+            <div class="music-scroll-track">
+                <app-recently-played class="music-section"></app-recently-played>
+
+                <section class="section-block music-section">
+                    <h2 class="section-title">Trending Now</h2>
+                    <div class="song-row" *ngIf="trendingNow.length > 0">
+                        <div class="song-col" *ngFor="let song of trendingNow">
+                            <div class="song-card-wrap">
+                                <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
+                                    (click)="playTrack(song)">
+                                    <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                                        <img [src]="((song.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
+                                            class="img-fluid object-fit-cover h-100 w-100"
+                                            loading="lazy">
+                                    </div>
+                                    <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
+                                    <p class="text-muted small mb-0 text-truncate">{{ song.artistName }}</p>
+                                    <span class="play-pill"><i class="bi bi-play-fill"></i></span>
+                                </button>
+                                <div class="dropdown song-menu-dropdown">
+                                    <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
+                                        <i class="bi bi-three-dots"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
+                                        <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
+                                        <li *ngIf="isSongInPlaylist(song)"><button type="button" class="dropdown-item" (click)="removeFromPlaylistForSong(song)">Remove from playlist</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-block music-section">
+                    <h2 class="section-title">Recommended For You</h2>
+                    <div class="song-row" *ngIf="recommendedForYou.length > 0; else noRecommendations">
+                        <div class="song-col" *ngFor="let song of recommendedForYou">
+                            <div class="song-card-wrap">
+                                <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
+                                    (click)="playTrack(song)">
+                                    <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                                        <img [src]="((song.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
+                                            class="img-fluid object-fit-cover h-100 w-100"
+                                            loading="lazy">
+                                    </div>
+                                    <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
+                                    <p class="text-muted small mb-0 text-truncate">{{ song.artistName }}</p>
+                                    <span class="play-pill"><i class="bi bi-play-fill"></i></span>
+                                </button>
+                                <div class="dropdown song-menu-dropdown">
+                                    <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
+                                        <i class="bi bi-three-dots"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
+                                        <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
+                                        <li *ngIf="isSongInPlaylist(song)"><button type="button" class="dropdown-item" (click)="removeFromPlaylistForSong(song)">Remove from playlist</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-block music-section">
+                    <h2 class="section-title">Made For You</h2>
+                    <div class="song-row" *ngIf="madeForYou.length > 0; else noMadeForYou">
+                        <div class="song-col" *ngFor="let song of madeForYou">
+                            <div class="song-card-wrap">
+                                <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
+                                    (click)="playTrack(song)">
+                                    <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                                        <img [src]="((song.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
+                                            class="img-fluid object-fit-cover h-100 w-100"
+                                            loading="lazy">
+                                    </div>
+                                    <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
+                                    <p class="text-muted small mb-0 text-truncate">{{ song.artistName }}</p>
+                                    <span class="play-pill"><i class="bi bi-play-fill"></i></span>
+                                </button>
+                                <div class="dropdown song-menu-dropdown">
+                                    <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
+                                        <i class="bi bi-three-dots"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
+                                        <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
+                                        <li *ngIf="isSongInPlaylist(song)"><button type="button" class="dropdown-item" (click)="removeFromPlaylistForSong(song)">Remove from playlist</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-block compact-grid music-section">
+                    <h2 class="section-title">Discovery Feed</h2>
+                    <div class="song-row" *ngIf="discoveryFeed.length > 0; else noDiscoveryFeed">
+                        <div class="song-col" *ngFor="let song of discoveryFeed">
+                            <div class="song-card-wrap">
                         <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
                             (click)="playTrack(song)">
                             <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
-                                <img [src]="song.coverUrl || 'assets/images/placeholder-album.png'" (error)="onCoverLoadError($event)"
+                                <img [src]="((song.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
                                     class="img-fluid object-fit-cover h-100 w-100"
                                     loading="lazy">
                             </div>
@@ -64,15 +176,15 @@
                             <span class="play-pill"><i class="bi bi-play-fill"></i></span>
                         </button>
                         <div class="dropdown song-menu-dropdown">
-                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown"
-                                aria-expanded="false">
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
                                 <i class="bi bi-three-dots"></i>
                             </button>
-                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow">
-                                <li><button type="button" class="dropdown-item" (click)="addSongToLikedSongs(song)">Add to liked songs</button></li>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
+                                <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="hideSongInCurrentList(song)">Hide in this list</button></li>
+                                <li *ngIf="isSongInPlaylist(song)"><button type="button" class="dropdown-item" (click)="removeFromPlaylistForSong(song)">Remove from playlist</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
@@ -80,146 +192,39 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </section>
-
-        <section class="section-block">
-            <h2 class="section-title">Recommended For You</h2>
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3" *ngIf="recommendedForYou.length > 0; else noRecommendations">
-                <div class="col" *ngFor="let song of recommendedForYou">
-                    <div class="song-card-wrap">
-                        <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
-                            (click)="playTrack(song)">
-                            <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
-                                <img [src]="song.coverUrl || 'assets/images/placeholder-album.png'" (error)="onCoverLoadError($event)"
-                                    class="img-fluid object-fit-cover h-100 w-100"
-                                    loading="lazy">
-                            </div>
-                            <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
-                            <p class="text-muted small mb-0 text-truncate">{{ song.artistName }}</p>
-                            <span class="play-pill"><i class="bi bi-play-fill"></i></span>
-                        </button>
-                        <div class="dropdown song-menu-dropdown">
-                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown"
-                                aria-expanded="false">
-                                <i class="bi bi-three-dots"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow">
-                                <li><button type="button" class="dropdown-item" (click)="addSongToLikedSongs(song)">Add to liked songs</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="hideSongInCurrentList(song)">Hide in this list</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
-                            </ul>
-                        </div>
                     </div>
-                </div>
-            </div>
-        </section>
+                </section>
 
-        <section class="section-block">
-            <h2 class="section-title">Made For You</h2>
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3" *ngIf="madeForYou.length > 0; else noMadeForYou">
-                <div class="col" *ngFor="let song of madeForYou">
-                    <div class="song-card-wrap">
-                        <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
-                            (click)="playTrack(song)">
-                            <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
-                                <img [src]="song.coverUrl || 'assets/images/placeholder-album.png'" (error)="onCoverLoadError($event)"
-                                    class="img-fluid object-fit-cover h-100 w-100"
-                                    loading="lazy">
-                            </div>
-                            <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
-                            <p class="text-muted small mb-0 text-truncate">{{ song.artistName }}</p>
-                            <span class="play-pill"><i class="bi bi-play-fill"></i></span>
-                        </button>
-                        <div class="dropdown song-menu-dropdown">
-                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown"
-                                aria-expanded="false">
-                                <i class="bi bi-three-dots"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow">
-                                <li><button type="button" class="dropdown-item" (click)="addSongToLikedSongs(song)">Add to liked songs</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="hideSongInCurrentList(song)">Hide in this list</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
-                            </ul>
-                        </div>
+                <section class="section-block music-section">
+                    <h2 class="section-title">System Mix Playlists</h2>
+                    <div class="mix-strip" *ngIf="mixPlaylists.length > 0; else noMixPlaylists">
+                        <button type="button"
+                            class="mix-strip-card"
+                            *ngFor="let mix of mixPlaylists; let i = index"
+                            (click)="openMixPlaylist(mix)">
+                    <div class="mix-strip-art" [style.background]="getMixGradient(mix, i)">
+                        <span class="mix-strip-tag">System Mix</span>
                     </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="section-block">
-            <h2 class="section-title">Discovery Feed</h2>
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3" *ngIf="discoveryFeed.length > 0; else noDiscoveryFeed">
-                <div class="col" *ngFor="let song of discoveryFeed">
-                    <div class="song-card-wrap">
-                        <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
-                            (click)="playTrack(song)">
-                            <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
-                                <img [src]="song.coverUrl || 'assets/images/placeholder-album.png'" (error)="onCoverLoadError($event)"
-                                    class="img-fluid object-fit-cover h-100 w-100"
-                                    loading="lazy">
-                            </div>
-                            <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
-                            <p class="text-muted small mb-0 text-truncate">{{ song.artistName }}</p>
-                            <span class="play-pill"><i class="bi bi-play-fill"></i></span>
-                        </button>
-                        <div class="dropdown song-menu-dropdown">
-                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown"
-                                aria-expanded="false">
-                                <i class="bi bi-three-dots"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow">
-                                <li><button type="button" class="dropdown-item" (click)="addSongToLikedSongs(song)">Add to liked songs</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="hideSongInCurrentList(song)">Hide in this list</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="section-block">
-            <h2 class="section-title">Mix Playlists</h2>
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3" *ngIf="mixPlaylists.length > 0; else noMixPlaylists">
-                <div class="col" *ngFor="let mix of mixPlaylists; let i = index">
-                    <button type="button" class="music-card card bg-secondary-panel border-0 text-start text-white p-3 h-100 w-100"
-                        (click)="openMixPlaylist(mix)">
-                        <div class="ratio ratio-1x1 rounded overflow-hidden mb-3 d-flex align-items-end"
-                            [style.background]="getMixGradient(mix, i)">
-                            <div class="w-100 p-2 small fw-bold text-uppercase text-light">{{ mix.name }}</div>
-                        </div>
+                    <div class="mix-strip-copy">
                         <h6 class="mb-1 text-truncate">{{ mix.name }}</h6>
-                        <p class="text-muted small mb-0 text-truncate">Curated system playlist</p>
-                        <span class="play-pill"><i class="bi bi-play-fill"></i></span>
-                    </button>
-                </div>
-            </div>
-        </section>
+                        <p class="text-muted small mb-0 text-truncate">Open curated songs</p>
+                    </div>
+                    <span class="mix-strip-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+                    </div>
+                </section>
 
-        <section class="section-block">
-            <h2 class="section-title">Browse Top Artists</h2>
-            <div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-3">
-                <div class="col" *ngFor="let artist of topArtists">
-                    <div class="artist-card card bg-secondary-panel border-0 text-center p-3 h-100">
+                <section class="section-block compact-grid music-section">
+                    <h2 class="section-title">Browse Top Artists</h2>
+                    <div class="song-row" *ngIf="topArtists.length > 0">
+                        <div class="song-col" *ngFor="let artist of topArtists">
+                            <div class="artist-card card bg-secondary-panel border-0 text-center p-3 h-100">
                         <div class="ratio ratio-1x1 rounded-circle overflow-hidden bg-dark mb-3 mx-auto artist-avatar">
-                            <img [src]="artist.imageUrl || 'assets/images/placeholder-artist.png'"
+                            <img [src]="(((artist.image || artist.imageUrl) | protectedMedia | async) || 'assets/images/placeholder-artist.png')"
                                 (error)="onArtistImageLoadError($event)"
                                 class="img-fluid object-fit-cover h-100 w-100" loading="lazy">
                         </div>
-                        <h6 class="mb-1 text-truncate">{{ artist.name }}</h6>
+                        <h6 class="mb-1 text-truncate">{{ artist.displayName || artist.name }}</h6>
                         <p class="text-muted small mb-2">{{ artist.playCount }} plays</p>
                         <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
                             (click)="toggleArtistFollow(artist)">
@@ -227,18 +232,18 @@
                         </button>
                     </div>
                 </div>
-            </div>
-        </section>
+                    </div>
+                </section>
 
-        <section class="section-block">
-            <h2 class="section-title">Browse New Releases</h2>
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3">
-                <div class="col" *ngFor="let song of newReleases">
-                    <div class="song-card-wrap">
+                <section class="section-block compact-grid music-section">
+                    <h2 class="section-title">Browse New Releases</h2>
+                    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3">
+                        <div class="col" *ngFor="let song of newReleases">
+                            <div class="song-card-wrap">
                         <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
                             (click)="playTrack(song)">
                             <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
-                                <img [src]="song.coverUrl || 'assets/images/placeholder-album.png'" (error)="onCoverLoadError($event)"
+                                <img [src]="((song.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
                                     class="img-fluid object-fit-cover h-100 w-100"
                                     loading="lazy">
                             </div>
@@ -247,15 +252,15 @@
                             <span class="play-pill"><i class="bi bi-play-fill"></i></span>
                         </button>
                         <div class="dropdown song-menu-dropdown">
-                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown"
-                                aria-expanded="false">
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
                                 <i class="bi bi-three-dots"></i>
                             </button>
-                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow">
-                                <li><button type="button" class="dropdown-item" (click)="addSongToLikedSongs(song)">Add to liked songs</button></li>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
+                                <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="hideSongInCurrentList(song)">Hide in this list</button></li>
+                                <li *ngIf="isSongInPlaylist(song)"><button type="button" class="dropdown-item" (click)="removeFromPlaylistForSong(song)">Remove from playlist</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
@@ -263,18 +268,18 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </section>
+                    </div>
+                </section>
 
-        <section class="section-block">
-            <h2 class="section-title">Browse Songs</h2>
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3">
-                <div class="col" *ngFor="let song of browseSongs">
-                    <div class="song-card-wrap">
+                <section class="section-block compact-grid music-section">
+                    <h2 class="section-title">Browse Songs</h2>
+                    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3">
+                        <div class="col" *ngFor="let song of browseSongs">
+                            <div class="song-card-wrap">
                         <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
                             (click)="playTrack(song)">
                             <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
-                                <img [src]="song.coverUrl || 'assets/images/placeholder-album.png'" (error)="onCoverLoadError($event)"
+                                <img [src]="((song.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
                                     class="img-fluid object-fit-cover h-100 w-100"
                                     loading="lazy">
                             </div>
@@ -283,15 +288,15 @@
                             <span class="play-pill"><i class="bi bi-play-fill"></i></span>
                         </button>
                         <div class="dropdown song-menu-dropdown">
-                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown"
-                                aria-expanded="false">
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
                                 <i class="bi bi-three-dots"></i>
                             </button>
-                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow">
-                                <li><button type="button" class="dropdown-item" (click)="addSongToLikedSongs(song)">Add to liked songs</button></li>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
+                                <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
-                                <li><button type="button" class="dropdown-item" (click)="hideSongInCurrentList(song)">Hide in this list</button></li>
+                                <li *ngIf="isSongInPlaylist(song)"><button type="button" class="dropdown-item" (click)="removeFromPlaylistForSong(song)">Remove from playlist</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
                                 <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
@@ -299,48 +304,62 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </section>
+                    </div>
+                </section>
 
-        <section class="section-block">
-            <h2 class="section-title">Popular Podcasts</h2>
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
-                <div class="col" *ngFor="let podcast of popularPodcasts">
-                    <div class="card bg-secondary-panel border-0 p-3 h-100 podcast-card">
+                <section class="section-block compact-grid music-section">
+                    <h2 class="section-title">Popular Podcasts</h2>
+                    <div class="song-row" *ngIf="popularPodcasts.length > 0">
+                        <div class="song-col" *ngFor="let podcast of popularPodcasts">
+                            <div class="card bg-secondary-panel border-0 p-3 h-100 podcast-card">
                         <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
-                            <img [src]="podcast.coverUrl || 'assets/images/placeholder-album.png'" (error)="onCoverLoadError($event)"
+                            <img [src]="((podcast.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
                                 class="img-fluid object-fit-cover h-100 w-100" loading="lazy">
                         </div>
                         <h6 class="mb-1 text-truncate">{{ podcast.title }}</h6>
                         <p class="text-muted small mb-2">{{ podcast.playCount }} plays</p>
-                        <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
-                            (click)="togglePodcastFollow(podcast)">
-                            {{ podcast.isFollowed ? 'Unfollow' : 'Follow' }}
-                        </button>
+                        <div class="d-flex gap-2 mt-auto">
+                            <button type="button" class="btn btn-sm btn-primary text-dark rounded-pill px-3"
+                                (click)="playPodcast(podcast)">
+                                Play
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                                (click)="togglePodcastFollow(podcast)">
+                                {{ podcast.isFollowed ? 'Unfollow' : 'Follow' }}
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </section>
+                    </div>
+                </section>
 
-        <section class="section-block">
-            <h2 class="section-title">Recommended Podcasts</h2>
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
-                <div class="col" *ngFor="let podcast of recommendedPodcasts">
-                    <div class="card bg-secondary-panel border-0 p-3 h-100 podcast-card">
+                <section class="section-block compact-grid music-section">
+                    <h2 class="section-title">Recommended Podcasts</h2>
+                    <div class="song-row" *ngIf="recommendedPodcasts.length > 0">
+                        <div class="song-col" *ngFor="let podcast of recommendedPodcasts">
+                            <div class="card bg-secondary-panel border-0 p-3 h-100 podcast-card">
                         <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
-                            <img [src]="podcast.coverUrl || 'assets/images/placeholder-album.png'" (error)="onCoverLoadError($event)"
+                            <img [src]="((podcast.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
                                 class="img-fluid object-fit-cover h-100 w-100" loading="lazy">
                         </div>
                         <h6 class="mb-1 text-truncate">{{ podcast.title }}</h6>
                         <p class="text-muted small mb-2 text-truncate">{{ podcast.description || 'Recommended for your taste' }}</p>
-                        <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
-                            (click)="togglePodcastFollow(podcast)">
-                            {{ podcast.isFollowed ? 'Unfollow' : 'Follow' }}
-                        </button>
+                        <div class="d-flex gap-2 mt-auto">
+                            <button type="button" class="btn btn-sm btn-primary text-dark rounded-pill px-3"
+                                (click)="playPodcast(podcast)">
+                                Play
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                                (click)="togglePodcastFollow(podcast)">
+                                {{ podcast.isFollowed ? 'Unfollow' : 'Follow' }}
+                            </button>
+                        </div>
                     </div>
                 </div>
+                    </div>
+                </section>
             </div>
-        </section>
+        </div>
     </div>
 
     <ng-template #noRecommendations>
@@ -359,3 +378,7 @@
         <div class="empty-note">No mix playlists available right now.</div>
     </ng-template>
 </div>
+
+
+
+

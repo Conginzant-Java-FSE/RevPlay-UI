@@ -16,7 +16,7 @@ export class PremiumComponent implements OnInit, OnDestroy {
   isUpgrading = false;
   errorMessage: string | null = null;
   showSuccessModal = false;
-  premiumStatus: PremiumStatus = { isPremium: false, plan: '', expiresAt: null };
+  premiumStatus: PremiumStatus = { isPremium: false, plan: '', planAmount: null, expiresAt: null };
   private statusSub?: Subscription;
 
   constructor(
@@ -71,11 +71,15 @@ export class PremiumComponent implements OnInit, OnDestroy {
 
   get premiumPlanLabel(): string {
     const normalized = String(this.premiumStatus?.plan ?? '').trim().toUpperCase();
+    const amount = Number(this.premiumStatus?.planAmount ?? 0);
+    if (Number.isFinite(amount) && amount > 0) {
+      return `₹${amount}`;
+    }
     if (normalized === 'YEARLY') {
-      return 'Yearly';
+      return '₹1499';
     }
     if (normalized === 'MONTHLY') {
-      return 'Monthly';
+      return '₹199';
     }
     return '-';
   }
