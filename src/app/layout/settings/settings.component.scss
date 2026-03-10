@@ -1,0 +1,121 @@
+.settings-shell {
+    max-width: 880px;
+}
+
+.settings-header h1 {
+    letter-spacing: 0.01em;
+}
+
+.settings-card {
+    border: 1px solid var(--settings-card-border);
+}
+
+.settings-nav {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.settings-nav-item {
+    border: 1px solid var(--settings-option-border);
+    background: var(--settings-option-bg);
+    color: var(--text-primary);
+    border-radius: 999px;
+    padding: 0.7rem 1rem;
+    font-weight: 600;
+    transition: border-color 0.16s ease, background-color 0.16s ease, transform 0.16s ease;
+
+    &:hover {
+        transform: translateY(-1px);
+        border-color: var(--settings-option-border-hover);
+        background: var(--settings-option-bg-hover);
+    }
+
+    &.active {
+        border-color: var(--settings-option-active-border);
+        background: var(--settings-option-active-bg);
+        box-shadow: 0 10px 18px var(--settings-option-active-shadow);
+    }
+}
+
+.theme-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.theme-option {
+    border: 1px solid var(--settings-option-border);
+    background: var(--settings-option-bg);
+    border-radius: 16px;
+    color: var(--text-primary);
+    padding: 1rem 1.05rem;
+    width: 100%;
+    text-align: left;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+
+    &:hover {
+        transform: translateY(-1px);
+        border-color: var(--settings-option-border-hover);
+        background: var(--settings-option-bg-hover);
+    }
+
+    &.active {
+        border-color: var(--settings-option-active-border);
+        background: var(--settings-option-active-bg);
+        box-shadow: 0 10px 18px var(--settings-option-active-shadow);
+    }
+}
+
+.theme-icon {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--settings-icon-bg);
+    color: var(--accent-primary);
+    font-size: 1.05rem;
+}
+
+.theme-text {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.theme-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.theme-desc {
+    font-size: 0.84rem;
+    color: var(--text-muted);
+}
+
+.support-email-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.support-email {
+    word-break: break-word;
+}
+
+.support-form {
+    display: grid;
+    gap: 1rem;
+}
+
+@media (max-width: 700px) {
+    .theme-grid {
+        grid-template-columns: 1fr;
+    }
+}

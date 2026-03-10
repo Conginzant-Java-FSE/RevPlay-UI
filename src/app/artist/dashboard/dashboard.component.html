@@ -1,0 +1,144 @@
+<div class="artist-dashboard p-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold m-0 text-white">Artist Dashboard</h1>
+            <p class="text-muted m-0">Welcome back! Here's how your music is performing.</p>
+        </div>
+        <div class="actions">
+            <button class="btn btn-primary rounded-pill px-4 py-2 me-2 shadow-sm text-dark fw-bold"
+                routerLink="/creator-studio/upload-song">
+                <i class="bi bi-music-note-beamed me-2"></i> Upload Song
+            </button>
+            <button class="btn btn-outline-light rounded-pill px-4 py-2 me-2" routerLink="/creator-studio/upload-podcast">
+                <i class="bi bi-mic me-2"></i> New Podcast
+            </button>
+            <button class="btn btn-outline-light rounded-pill px-4 py-2" routerLink="/creator-studio/profile">
+                <i class="bi bi-person-badge me-2"></i> Profile Studio
+            </button>
+        </div>
+    </div>
+
+    <div>
+        <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger d-flex align-items-center justify-content-between gap-3 mb-4">
+            <span>{{ error }}</span>
+            <button type="button" class="btn btn-outline-light btn-sm rounded-pill px-3" (click)="refreshDashboard()">
+                Retry
+            </button>
+        </div>
+
+        <!-- Stats Overview -->
+        <div class="row row-cols-1 row-cols-md-4 g-4 mb-5">
+            <div class="col">
+                <div class="card bg-secondary-panel border-0 shadow-sm p-4 h-100 rounded-4 stat-card transition-all">
+                    <h6 class="text-muted text-uppercase small fw-bold mb-2">Total Plays</h6>
+                    <h2 class="fw-bold m-0 text-white">{{ stats?.totalPlays || '0' }}</h2>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card bg-secondary-panel border-0 shadow-sm p-4 h-100 rounded-4 stat-card transition-all">
+                    <h6 class="text-muted text-uppercase small fw-bold mb-2">Favorites</h6>
+                    <h2 class="fw-bold m-0 text-white">{{ stats?.totalFavorites || '0' }}</h2>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card bg-secondary-panel border-0 shadow-sm p-4 h-100 rounded-4 stat-card transition-all">
+                    <h6 class="text-muted text-uppercase small fw-bold mb-2">Uploads</h6>
+                    <h2 class="fw-bold m-0 text-white">{{ summary?.totalSongs || stats?.totalSongs || '0' }}</h2>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card bg-secondary-panel border-0 shadow-sm p-4 h-100 rounded-4 stat-card transition-all">
+                    <h6 class="text-muted text-uppercase small fw-bold mb-2">Followers</h6>
+                    <h2 class="fw-bold m-0 text-white">{{ summary?.totalFollowers || '0' }}</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Performing Content -->
+        <div class="row g-4 mb-4">
+            <div class="col-lg-7">
+                <div class="bg-secondary-panel rounded-4 p-4 h-100 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="fw-bold m-0 text-white">Recent Uploads</h5>
+                        <button class="btn btn-link text-muted p-0 text-decoration-none hover-white"
+                            routerLink="/creator-studio/songs">Manage Songs</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-borderless text-white align-middle m-0">
+                            <thead class="text-muted small text-uppercase">
+                                <tr>
+                                    <th scope="col" class="ps-0">Track</th>
+                                    <th scope="col">Song ID</th>
+                                    <th scope="col" class="text-end pe-0">Plays</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let track of topSongs"
+                                    class="border-bottom border-light border-opacity-10 py-3">
+                                    <td class="ps-0 py-3">
+                                        <div class="track-cell">
+                                            <img [src]="((track.imageUrl | protectedMedia | async) || '/assets/images/placeholder-album.png')"
+                                                (error)="onTrackImageError($event)" alt="Track cover" class="track-thumb"
+                                                loading="lazy">
+                                            <div class="track-meta">
+                                                <div class="fw-bold text-white text-truncate">{{ track.title }}</div>
+                                                <div class="small text-muted text-truncate">{{ track.artistName }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 text-muted">{{ track.songId || '-' }}</td>
+                                    <td class="py-3 text-end fw-bold pe-0">{{ track.playCount || 0 }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div *ngIf="topSongs.length === 0" class="text-center py-5 text-muted">
+                        <p>No uploads found. Start by uploading your first track!</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                <div class="bg-secondary-panel rounded-4 p-4 h-100 shadow-sm">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold m-0 text-white">Performance Trends</h5>
+                    </div>
+
+                    <div class="trend-chart" *ngIf="trendListSource.length > 0">
+                        <canvas #trendChart aria-label="Performance trends chart" role="img"></canvas>
+                    </div>
+
+                    <div class="trend-list" *ngIf="trendListSource.length > 0">
+                        <div class="trend-row" *ngFor="let point of trendListSource | slice:0:8; let i = index">
+                            <div class="trend-meta">
+                                <div class="trend-name text-white text-truncate">{{ getTrendLabel(point, i) }}</div>
+                                <div class="trend-count text-muted">{{ getTrendValue(point) }} plays</div>
+                            </div>
+                            <div class="trend-meter">
+                                <div class="progress bg-dark-subtle">
+                                    <div class="progress-bar" role="progressbar"
+                                        [style.width.%]="getTrendPercent(point)"
+                                        [attr.aria-valuenow]="getTrendPercent(point)"
+                                        aria-valuemin="0"
+                                        aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div *ngIf="trendListSource.length === 0" class="text-center py-5 text-muted">
+                        <p class="m-0">Trend data not available yet.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-light rounded-pill px-3" routerLink="/creator-studio/profile">Artist Profile</a>
+            <a class="btn btn-outline-light rounded-pill px-3" routerLink="/creator-studio/songs">Song Manager</a>
+            <a class="btn btn-outline-light rounded-pill px-3" routerLink="/creator-studio/manage-albums">Album Manager</a>
+        </div>
+    </div>
+</div>

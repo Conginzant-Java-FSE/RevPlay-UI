@@ -1,0 +1,179 @@
+:host {
+    display: block;
+    height: 100dvh;
+    min-height: 100dvh;
+}
+
+.app-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    background-color: var(--bg-shell);
+    color: var(--text-primary);
+    position: relative;
+    isolation: isolate;
+}
+
+.app-navbar {
+    height: var(--navbar-height);
+    flex-shrink: 0;
+    z-index: 1000;
+    background: var(--layout-navbar-bg);
+    border-bottom: 1px solid var(--layout-navbar-border);
+    backdrop-filter: blur(8px);
+    box-shadow: var(--layout-navbar-shadow);
+}
+
+.app-body {
+    display: flex;
+    height: calc(100dvh - var(--navbar-height) - var(--player-height));
+    overflow: hidden;
+}
+
+.app-sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--layout-sidebar-bg);
+    border-right: 1px solid var(--layout-sidebar-border);
+    height: 100%;
+    overflow-y: auto;
+    transition: width 0.2s ease, border-color 0.2s ease;
+
+    @media (max-width: 900px) {
+        width: 82px;
+    }
+}
+
+.app-main-content {
+    flex: 1;
+    position: relative;
+    isolation: isolate;
+    background: var(--layout-main-bg);
+    height: 100%;
+    overflow: hidden;
+}
+
+.app-main-content::before,
+.app-main-content::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.app-main-content::before {
+    inset: 24px 18px auto 18px;
+    height: 1px;
+    background: var(--layout-main-divider);
+}
+
+.app-main-content::after {
+    width: min(42vw, 560px);
+    aspect-ratio: 1 / 1;
+    right: -16vw;
+    top: -20vh;
+    border-radius: 50%;
+    background: var(--layout-main-orb);
+}
+
+.app-main-content > * {
+    position: relative;
+    z-index: 1;
+}
+
+.app-main-scroll {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: auto;
+    padding: 24px;
+    position: relative;
+    z-index: 1;
+}
+
+.app-main-scroll::-webkit-scrollbar:horizontal {
+    height: 0;
+}
+
+@media (max-width: 900px) {
+    .app-main-scroll {
+        padding: 14px;
+    }
+}
+
+.app-player-container {
+    height: var(--player-height);
+    background: var(--layout-player-bg);
+    border-top: 1px solid var(--layout-player-border);
+    z-index: 1000;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.app-horizontal-scrollbar {
+    position: fixed;
+    left: calc(var(--sidebar-width) + 24px);
+    right: 24px;
+    bottom: var(--player-height);
+    height: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: var(--bg-player);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 1001;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+@media (max-width: 900px) {
+    .app-horizontal-scrollbar {
+        left: calc(82px + 14px);
+        right: 14px;
+    }
+}
+
+.sidebar-collapsed .app-sidebar {
+    width: 0;
+    border-right-color: transparent;
+}
+
+.sidebar-collapsed .app-horizontal-scrollbar {
+    left: 24px;
+}
+
+@media (max-width: 900px) {
+    .sidebar-collapsed .app-horizontal-scrollbar {
+        left: 14px;
+    }
+}
+
+.app-horizontal-scrollbar-track {
+    height: 1px;
+}
+
+.app-horizontal-scrollbar::-webkit-scrollbar {
+    height: 8px;
+}
+
+.app-horizontal-scrollbar::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+
+.app-horizontal-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 10px;
+}
+
+.app-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+.app-autoplay-toggle {
+    position: fixed;
+    right: 16px;
+    bottom: calc(var(--player-height) + 10px);
+    z-index: 1002;
+}

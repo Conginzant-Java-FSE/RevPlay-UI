@@ -1,0 +1,278 @@
+<div class="podcast-studio premium-fade-in p-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+        <div>
+            <h1 class="fw-bold text-white mb-1">Podcast Studio</h1>
+            <p class="text-muted mb-0">Create podcasts, manage episodes, replace audio, and stream previews.</p>
+        </div>
+        <a routerLink="/creator-studio/dashboard" class="btn btn-outline-light rounded-pill px-4">Back to Dashboard</a>
+    </div>
+
+    <div *ngIf="successMessage" class="alert alert-success bg-dark border-success text-success mb-3">
+        {{ successMessage }}
+    </div>
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-3">
+        {{ error }}
+    </div>
+
+    <div class="row g-4">
+        <div class="col-xxl-4">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4 mb-4">
+                <h5 class="text-white mb-3">Create Podcast + First Episode</h5>
+
+                <form (ngSubmit)="onSubmit()" #podForm="ngForm">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold">EPISODE TITLE</label>
+                        <input name="title" class="form-control custom-input" [(ngModel)]="podcastData.title" required
+                            placeholder="What's this episode called?">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold">CATEGORY</label>
+                        <select name="categoryId" class="form-select custom-input" [(ngModel)]="podcastData.categoryId" required>
+                            <option value="" disabled>Select Category</option>
+                            <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold">DESCRIPTION</label>
+                        <textarea name="description" class="form-control custom-input" rows="3" [(ngModel)]="podcastData.description"
+                            placeholder="Give your listeners a summary..."></textarea>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label text-muted small fw-bold">Cover Image</label>
+                            <input type="file" accept="image/*" class="form-control custom-input readable-file-input" (change)="onImageSelected($event)" required>
+                            <div class="cover-preview mt-2" *ngIf="imagePreview">
+                                <img [src]="imagePreview" alt="Podcast cover preview">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-muted small fw-bold">Episode Audio</label>
+                            <input type="file" accept="audio/*" class="form-control custom-input readable-file-input" (change)="onAudioSelected($event)" required>
+                        </div>
+                    </div>
+
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="publishPodcast" [(ngModel)]="podcastData.isPublic" name="isPublic">
+                        <label class="form-check-label text-white" for="publishPodcast">Publish Immediately</label>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 text-dark fw-bold flex-fill"
+                            [disabled]="!podForm.form.valid || !imageFile || !audioFile || isUploading">
+                            Upload Episode
+                        </button>
+                        <button type="button" class="btn btn-outline-light rounded-pill px-3"
+                            [disabled]="isUploading || !podcastData.title.trim() || !podcastData.categoryId || !imageFile"
+                            (click)="createPodcastWithoutEpisode()">
+                            Create Only
+                        </button>
+                    </div>
+                </form>
+
+                <div class="mt-3" *ngIf="isUploading || uploadProgress > 0">
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-primary progress-bar-striped" [class.progress-bar-animated]="isUploading"
+                            role="progressbar" [style.width.%]="uploadProgress"></div>
+                    </div>
+                    <small class="text-muted">Upload progress: {{ uploadProgress }}%</small>
+                </div>
+            </div>
+
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4">
+                <h5 class="text-white mb-3">Create Category</h5>
+                <div class="mb-2">
+                    <label class="form-label text-muted small">Category Name</label>
+                    <input class="form-control custom-input" [(ngModel)]="newCategory.name" maxlength="120" placeholder="Category name">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Description</label>
+                    <textarea class="form-control custom-input" [(ngModel)]="newCategory.description" rows="2"
+                        placeholder="Optional description"></textarea>
+                </div>
+                <button type="button" class="btn btn-outline-light rounded-pill w-100" [disabled]="isSaving || !newCategory.name.trim()"
+                    (click)="createCategory()">
+                    Add Category
+                </button>
+            </div>
+        </div>
+
+        <div class="col-xxl-3">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-3 h-100">
+                <h5 class="text-white mb-3">Your Podcasts</h5>
+
+                <div *ngIf="isLoading" class="d-flex justify-content-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+
+                <div class="podcast-list" *ngIf="!isLoading">
+                    <button type="button" class="podcast-item" *ngFor="let podcast of podcasts"
+                        [class.active]="(selectedPodcast?.podcastId || selectedPodcast?.id) === (podcast?.podcastId || podcast?.id)"
+                        (click)="selectPodcast(podcast)">
+                        <img [src]="resolveImage(podcast.coverImageUrl) || 'assets/images/placeholder-playlist.png'" alt="Podcast cover">
+                        <div class="text-start">
+                            <div class="fw-bold text-truncate">{{ podcast.title }}</div>
+                            <small class="text-muted text-truncate d-inline-block">{{ podcast.visibility || 'PUBLIC' }}</small>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="text-muted small py-2" *ngIf="!isLoading && podcasts.length === 0">
+                    No podcasts yet.
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xxl-5">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4 mb-4" *ngIf="selectedPodcast">
+                <h5 class="text-white mb-3">Edit Podcast</h5>
+                <div class="row g-2">
+                    <div class="col-md-8">
+                        <label class="form-label text-muted small">Title</label>
+                        <input class="form-control custom-input" [(ngModel)]="podcastEdit.title">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">Category</label>
+                        <select class="form-select custom-input" [(ngModel)]="podcastEdit.categoryId">
+                            <option *ngFor="let cat of categories" [ngValue]="'' + cat.id">{{ cat.name }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label text-muted small">Cover Image</label>
+                        <div class="cover-edit-box">
+                            <div class="cover-preview mb-2">
+                                <img *ngIf="editImagePreview || podcastEdit.coverImageUrl"
+                                    [src]="editImagePreview || resolveImage(podcastEdit.coverImageUrl)" alt="Podcast cover preview">
+                                <div class="cover-empty" *ngIf="!editImagePreview && !podcastEdit.coverImageUrl">
+                                    <i class="bi bi-image"></i>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 align-items-center">
+                                <label class="btn btn-outline-light rounded-pill btn-sm mb-0">
+                                    <input type="file" class="d-none" accept="image/*" (change)="onEditImageSelected($event)">
+                                    {{ isUploadingEditCover ? 'Uploading...' : 'Upload New Cover' }}
+                                </label>
+                                <small class="text-muted" *ngIf="isUploadingEditCover || editCoverUploadProgress > 0">
+                                    {{ editCoverUploadProgress }}%
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">Visibility</label>
+                        <select class="form-select custom-input" [(ngModel)]="podcastEdit.visibility">
+                            <option [ngValue]="'PUBLIC'">PUBLIC</option>
+                            <option [ngValue]="'UNLISTED'">UNLISTED</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted small">Description</label>
+                        <textarea class="form-control custom-input" rows="2" [(ngModel)]="podcastEdit.description"></textarea>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                    <button type="button" class="btn btn-outline-light rounded-pill flex-fill" [disabled]="isSaving"
+                        (click)="updatePodcast()">
+                        Save Podcast
+                    </button>
+                    <button type="button" class="btn btn-outline-danger rounded-pill flex-fill" [disabled]="isSaving"
+                        (click)="deletePodcast()">
+                        Delete Podcast
+                    </button>
+                </div>
+            </div>
+
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4" *ngIf="selectedPodcast">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="text-white m-0">Episodes</h5>
+                    <span class="text-muted small">{{ episodes.length }} total</span>
+                </div>
+
+                <div class="episode-create row g-2 mb-3">
+                    <div class="col-md-6">
+                        <input class="form-control custom-input" [(ngModel)]="episodeCreate.title" placeholder="New episode title">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="number" class="form-control custom-input" [(ngModel)]="episodeCreate.durationSeconds" min="1"
+                            placeholder="Duration">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="date" class="form-control custom-input" [(ngModel)]="episodeCreate.releaseDate">
+                    </div>
+                    <div class="col-md-8">
+                        <input type="file" class="form-control custom-input readable-file-input" accept="audio/*,.mp3" (change)="onNewEpisodeAudioSelected($event)">
+                    </div>
+                    <div class="col-md-4">
+                        <button type="button" class="btn btn-outline-light rounded-pill w-100" [disabled]="isSaving || !newEpisodeAudioFile"
+                            (click)="createEpisode()">
+                            Add Episode
+                        </button>
+                    </div>
+                </div>
+
+                <div class="episode-list">
+                    <div class="episode-item" *ngFor="let episode of episodes"
+                        [class.active]="(selectedEpisode?.episodeId || selectedEpisode?.id) === (episode?.episodeId || episode?.id)">
+                        <button type="button" class="episode-main text-start" (click)="selectEpisode(episode)">
+                            <div class="fw-bold text-truncate">{{ episode.title || ('Episode #' + (episode.episodeId || episode.id)) }}</div>
+                            <small class="text-muted">{{ episode.durationSeconds || 0 }}s</small>
+                        </button>
+                        <audio controls preload="none" [src]="getEpisodeStreamUrl(episode)" class="episode-audio"></audio>
+                    </div>
+
+                    <div *ngIf="episodes.length === 0" class="text-muted small py-2">
+                        No episodes yet.
+                    </div>
+                </div>
+
+                <div class="episode-edit mt-3" *ngIf="selectedEpisode">
+                    <h6 class="text-white">Edit Episode</h6>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <input class="form-control custom-input" [(ngModel)]="episodeEdit.title">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="number" class="form-control custom-input" [(ngModel)]="episodeEdit.durationSeconds" min="1">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control custom-input" [(ngModel)]="episodeEdit.releaseDate">
+                        </div>
+                        <div class="col-md-8">
+                            <input type="file" class="form-control custom-input readable-file-input" accept="audio/*,.mp3" (change)="onReplaceAudioSelected($event)">
+                        </div>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-outline-light rounded-pill w-100"
+                                [disabled]="isSaving || !replaceAudioFile" (click)="replaceEpisodeAudio()">
+                                Replace Audio
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-2" *ngIf="replaceAudioProgress > 0">
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-info" role="progressbar" [style.width.%]="replaceAudioProgress"></div>
+                        </div>
+                        <small class="text-muted">Replace progress: {{ replaceAudioProgress }}%</small>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="button" class="btn btn-outline-light rounded-pill flex-fill" [disabled]="isSaving"
+                            (click)="updateEpisode()">
+                            Save Episode
+                        </button>
+                        <button type="button" class="btn btn-outline-danger rounded-pill flex-fill" [disabled]="isSaving"
+                            (click)="deleteEpisode()">
+                            Delete Episode
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4 text-center" *ngIf="!selectedPodcast">
+                <div class="text-muted">Select a podcast to manage episodes and stream preview.</div>
+            </div>
+        </div>
+    </div>
+</div>

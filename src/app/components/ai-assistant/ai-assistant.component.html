@@ -1,0 +1,56 @@
+<button
+  type="button"
+  class="ai-trigger"
+  [class.is-open]="isOpen()"
+  (click)="toggle()"
+  aria-label="Toggle RevPlay AI Assistant"
+>
+  <span class="ai-trigger__icon">🎧</span>
+  <span class="ai-trigger__label">RevPlay AI</span>
+</button>
+
+<section class="ai-panel" *ngIf="isOpen()">
+  <header class="ai-panel__header">
+    <div>
+      <h3>RevPlay AI Assistant 🎧</h3>
+      <p>Ask anything about RevPlay.</p>
+    </div>
+    <button type="button" class="ai-panel__close" (click)="close()" aria-label="Close AI assistant">
+      ×
+    </button>
+  </header>
+
+  <div class="ai-panel__messages" #messagesContainer>
+    <div
+      class="ai-message"
+      *ngFor="let message of messages(); trackBy: trackByIndex"
+      [class.ai-message--user]="message.sender === 'user'"
+      [class.ai-message--assistant]="message.sender === 'ai'"
+    >
+      <div class="ai-message__bubble">
+        {{ message.text }}
+      </div>
+    </div>
+
+    <div class="ai-message ai-message--assistant" *ngIf="isSending()">
+      <div class="ai-message__bubble">
+        RevPlay AI is thinking...
+      </div>
+    </div>
+  </div>
+
+  <div class="ai-panel__composer">
+    <input
+      type="text"
+      class="ai-panel__input"
+      [ngModel]="draft()"
+      (ngModelChange)="draft.set($event)"
+      (keydown)="handleEnter($event)"
+      placeholder="Type your message..."
+      autocomplete="off"
+    >
+    <button type="button" class="ai-panel__send" (click)="send()" [disabled]="isSending() || !draft().trim()">
+      Send
+    </button>
+  </div>
+</section>

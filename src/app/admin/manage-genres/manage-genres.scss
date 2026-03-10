@@ -1,0 +1,17 @@
+@import '../manage-users/manage-users.component.scss';
+
+.genre-card {
+    &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4) !important;
+        border: 1px solid var(--accent-secondary) !important;
+
+        .context-menu {
+            opacity: 1 !important;
+        }
+    }
+}
+
+.edit-genre-input {
+    max-width: 420px;
+}

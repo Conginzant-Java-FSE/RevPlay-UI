@@ -1,0 +1,212 @@
+<div class="admin-dashboard p-4 p-lg-5">
+    <div class="dashboard-glow"></div>
+    <div class="dashboard-content">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-5">
+            <div>
+                <h1 class="fw-bold m-0 text-white">Platform Analytics</h1>
+                <p class="text-muted m-0">Admin overview of RevPlay performance from live backend data.</p>
+            </div>
+            <div class="actions d-flex gap-2 flex-wrap">
+                <button class="btn btn-outline-light rounded-pill px-4 py-2" routerLink="/admin-studio/manage-users">
+                    <i class="bi bi-people me-2"></i>Manage Users
+                </button>
+                <button class="btn btn-outline-light rounded-pill px-4 py-2" routerLink="/admin-studio/manage-genres">
+                    <i class="bi bi-grid me-2"></i>Manage Genres
+                </button>
+                <button class="btn btn-outline-light rounded-pill px-4 py-2" routerLink="/admin-studio/analytics">
+                    <i class="bi bi-graph-up-arrow me-2"></i>Business Analytics
+                </button>
+                <button class="btn btn-outline-light rounded-pill px-4 py-2" routerLink="/admin-studio/ads">
+                    <i class="bi bi-megaphone me-2"></i>Ads
+                </button>
+                <button class="btn btn-outline-light rounded-pill px-4 py-2" routerLink="/admin-studio/system-playlists">
+                    <i class="bi bi-collection-play me-2"></i>System Playlists
+                </button>
+                <button class="btn btn-outline-light rounded-pill px-4 py-2" (click)="loadDashboardData()">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Refresh
+                </button>
+            </div>
+        </div>
+
+        <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-4">{{ error }}</div>
+        <div *ngIf="partialWarning && !error" class="alert alert-warning dashboard-alert mb-4">
+            {{ partialWarning }}
+        </div>
+
+        <div *ngIf="isLoading" class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+
+        <div *ngIf="!isLoading && metrics">
+            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4 mb-5">
+                <div class="col">
+                    <div class="card bg-secondary-panel border-0 shadow-sm p-4 h-100 rounded-4 stat-card transition-all">
+                        <h6 class="text-muted text-uppercase small fw-bold mb-2">Total Platform Plays</h6>
+                        <h2 class="fw-bold m-0 text-white">{{ (metrics.totalPlatformPlays || 0) | number }}</h2>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card bg-secondary-panel border-0 shadow-sm p-4 h-100 rounded-4 stat-card transition-all">
+                        <h6 class="text-muted text-uppercase small fw-bold mb-2">Plays Last 24h</h6>
+                        <h2 class="fw-bold m-0 text-white">{{ (metrics.playsLast24Hours || 0) | number }}</h2>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card bg-secondary-panel border-0 shadow-sm p-4 h-100 rounded-4 stat-card transition-all">
+                        <h6 class="text-muted text-uppercase small fw-bold mb-2">Active Users (7d)</h6>
+                        <h2 class="fw-bold m-0 text-white">{{ (metrics.activeUsers?.last7Days || 0) | number }}</h2>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card bg-secondary-panel border-0 shadow-sm p-4 h-100 rounded-4 stat-card transition-all">
+                        <h6 class="text-muted text-uppercase small fw-bold mb-2">Active Users (30d)</h6>
+                        <h2 class="fw-bold m-0 text-white">{{ (metrics.activeUsers?.last30Days || 0) | number }}</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-5">
+                <div class="col-lg-6">
+                    <div class="bg-secondary-panel rounded-4 p-4 h-100 shadow-sm panel-card">
+                        <h5 class="fw-bold m-0 text-white mb-3">Top Artists</h5>
+
+                        <div *ngIf="topArtists.length > 0; else topArtistsEmpty" class="table-responsive admin-mini-table">
+                            <table class="table table-borderless text-white align-middle m-0">
+                                <thead class="text-muted small text-uppercase">
+                                    <tr>
+                                        <th class="ps-0">#</th>
+                                        <th>Artist</th>
+                                        <th class="text-end pe-0">Plays</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr *ngFor="let artist of topArtists | slice:0:5">
+                                        <td class="ps-0">{{ artist.rank }}</td>
+                                        <td class="text-truncate">{{ artist.name }}</td>
+                                        <td class="text-end pe-0">{{ artist.playCount | number }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <ng-template #topArtistsEmpty>
+                            <div class="empty-panel">
+                                <i class="bi bi-bar-chart-line-fill"></i>
+                                <p class="m-0">Top artists data is not available right now.</p>
+                            </div>
+                        </ng-template>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="bg-secondary-panel rounded-4 p-4 h-100 shadow-sm panel-card">
+                        <h5 class="fw-bold m-0 text-white mb-3">Top Content</h5>
+
+                        <div *ngIf="topContent.length > 0; else topContentEmpty" class="table-responsive admin-mini-table">
+                            <table class="table table-borderless text-white align-middle m-0">
+                                <thead class="text-muted small text-uppercase">
+                                    <tr>
+                                        <th class="ps-0">#</th>
+                                        <th>Content</th>
+                                        <th>Artist</th>
+                                        <th>Type</th>
+                                        <th class="text-end pe-0">Plays</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr *ngFor="let item of topContent | slice:0:5">
+                                        <td class="ps-0">{{ item.rank }}</td>
+                                        <td class="text-truncate">{{ item.title }}</td>
+                                        <td class="text-truncate">{{ item.artistName || '-' }}</td>
+                                        <td>{{ item.type }}</td>
+                                        <td class="text-end pe-0">{{ item.playCount | number }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <ng-template #topContentEmpty>
+                            <div class="empty-panel">
+                                <i class="bi bi-collection-play-fill"></i>
+                                <p class="m-0">Top content data is not available right now.</p>
+                            </div>
+                        </ng-template>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-secondary-panel rounded-4 p-4 h-100 shadow-sm panel-card mb-5">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold m-0 text-white">Recent Registrations</h5>
+                </div>
+
+                <div *ngIf="recentRegistrations.length > 0; else emptyRegistrations" class="table-responsive">
+                    <table class="table table-borderless text-white align-middle m-0">
+                        <thead class="text-muted small text-uppercase">
+                            <tr>
+                                <th scope="col" class="ps-0">User</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Action</th>
+                                <th scope="col" class="text-end pe-0">Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let log of recentRegistrations">
+                                <td class="ps-0 py-3">
+                                    <div>{{ log.actorName }}</div>
+                                    <small class="text-muted" *ngIf="log.actorId">ID: {{ log.actorId }}</small>
+                                </td>
+                                <td class="py-3">{{ log.actorEmail || '-' }}</td>
+                                <td class="py-3">{{ formatActionLabel(log.actionType) }}</td>
+                                <td class="py-3 text-end small pe-0">{{ log.timestamp | date:'short' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <ng-template #emptyRegistrations>
+                    <div class="empty-panel">
+                        <i class="bi bi-person-plus"></i>
+                        <p class="m-0">No registration logs found in current feed.</p>
+                    </div>
+                </ng-template>
+            </div>
+
+            <div class="bg-secondary-panel rounded-4 p-4 h-100 shadow-sm panel-card">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold m-0 text-white">Recent System Activity</h5>
+                    <button class="btn btn-link text-muted p-0 text-decoration-none hover-white" routerLink="/admin-studio/audit-logs">View Logs</button>
+                </div>
+
+                <div *ngIf="recentLogs.length > 0; else emptyLogs" class="table-responsive">
+                    <table class="table table-borderless text-white align-middle m-0">
+                        <thead class="text-muted small text-uppercase">
+                            <tr>
+                                <th scope="col" class="ps-0">Action</th>
+                                <th scope="col">User</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Entity</th>
+                                <th scope="col" class="text-end pe-0">Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let log of recentLogs" class="border-bottom border-secondary pt-2 pb-2">
+                                <td class="ps-0 py-3">{{ formatActionLabel(log.actionType) }}</td>
+                                <td class="py-3">
+                                    <div>{{ log.actorName }}</div>
+                                    <small class="text-muted" *ngIf="log.actorId">ID: {{ log.actorId }}</small>
+                                </td>
+                                <td class="py-3">{{ log.actorEmail || '-' }}</td>
+                                <td class="py-3">{{ log.entityType }}</td>
+                                <td class="py-3 text-end small pe-0">{{ log.timestamp | date:'short' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <ng-template #emptyLogs>
+                    <div class="empty-panel">
+                        <i class="bi bi-clock-history"></i>
+                        <p class="m-0">No recent audit entries.</p>
+                    </div>
+                </ng-template>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,163 @@
+<div class="manage-songs premium-fade-in p-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+        <div>
+            <h1 class="fw-bold text-white mb-1">Manage Songs</h1>
+            <p class="text-muted mb-0">Update tracks, visibility, genres, and audio files.</p>
+        </div>
+        <a routerLink="/creator-studio/upload-song" class="btn btn-primary rounded-pill px-4 text-dark fw-bold">
+            <i class="bi bi-upload me-2"></i>Upload New Song
+        </a>
+    </div>
+
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-3">{{ error }}</div>
+    <div *ngIf="successMessage" class="alert alert-success bg-dark border-success text-success mb-3">{{ successMessage }}</div>
+
+    <div class="row g-4">
+        <div class="col-xl-5">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-3 h-100">
+                <h5 class="text-white mb-3">Your Songs</h5>
+
+                <div *ngIf="isLoading" class="d-flex justify-content-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+
+                <div class="song-list" *ngIf="!isLoading">
+                    <button type="button" class="song-item" *ngFor="let song of songs"
+                        [class.active]="(selectedSong?.songId || selectedSong?.id) === (song?.songId || song?.id)"
+                        (click)="selectSong(song)">
+                        <div class="text-start song-main">
+                            <img [src]="((song.imageUrl | protectedMedia | async) || '/assets/images/placeholder-album.png')" (error)="onSongImageError($event)"
+                                alt="Song cover" class="song-thumb" loading="lazy">
+                            <div class="song-text">
+                                <div class="title text-truncate">{{ song.title || ('Song #' + (song.songId || song.id)) }}</div>
+                                <div class="small text-muted">
+                                {{ song.visibility || 'PUBLIC' }} | {{ song.durationSeconds || 0 }}s
+                                </div>
+                            </div>
+                        </div>
+                        <i class="bi bi-chevron-right text-muted"></i>
+                    </button>
+                </div>
+
+                <div *ngIf="!isLoading && songs.length === 0" class="text-muted small py-2">
+                    No songs found. Upload your first track.
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-7">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4" *ngIf="selectedSong">
+                <h5 class="text-white mb-3">Song Controls</h5>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Title</label>
+                        <input class="form-control custom-input" [(ngModel)]="form.title" maxlength="200">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small">Duration (seconds)</label>
+                        <input type="number" class="form-control custom-input" [(ngModel)]="form.durationSeconds" min="1">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small">Release Date</label>
+                        <input type="date" class="form-control custom-input" [(ngModel)]="form.releaseDate">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label text-muted small">Album</label>
+                        <select class="form-select custom-input" [(ngModel)]="form.albumId">
+                            <option value="">No album</option>
+                            <option *ngFor="let album of albums" [ngValue]="'' + (album.id || album.albumId)">
+                                {{ album.title }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-light rounded-pill w-100" [disabled]="isSaving" (click)="saveSongBasics()">
+                            Save Metadata
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="border-secondary my-4">
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">Visibility</label>
+                        <select class="form-select custom-input" [(ngModel)]="form.visibility">
+                            <option [ngValue]="'PUBLIC'">PUBLIC</option>
+                            <option [ngValue]="'UNLISTED'">UNLISTED</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">Active Status</label>
+                        <select class="form-select custom-input" [(ngModel)]="form.isActive">
+                            <option [ngValue]="true">Active</option>
+                            <option [ngValue]="false">Inactive</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-light rounded-pill w-100" [disabled]="isSaving" (click)="saveVisibility()">
+                            Update Visibility
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="border-secondary my-4">
+
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label text-muted small">Genres</label>
+                        <select class="form-select custom-input genre-select" multiple size="6" (change)="onGenresSelectionChange($event)">
+                            <option *ngFor="let genre of genres" [value]="genre.id" [selected]="selectedGenreIds.includes(genre.id)">
+                                {{ genre.name }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex flex-column justify-content-end gap-2">
+                        <button type="button" class="btn btn-outline-light rounded-pill" [disabled]="isSaving || selectedGenreIds.length === 0"
+                            (click)="replaceGenres()">
+                            Replace Genres
+                        </button>
+                        <button type="button" class="btn btn-outline-light rounded-pill" [disabled]="isSaving || selectedGenreIds.length === 0"
+                            (click)="addGenres()">
+                            Add Genres
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="border-secondary my-4">
+
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-8">
+                        <label class="form-label text-muted small">Replace Audio</label>
+                        <input type="file" accept=".mp3,audio/*" class="form-control custom-input readable-file-input" (change)="onReplaceAudioFileSelected($event)">
+                    </div>
+                    <div class="col-md-4">
+                        <button type="button" class="btn btn-outline-light rounded-pill w-100"
+                            [disabled]="isSaving || !replacementAudioFile" (click)="replaceAudio()">
+                            Replace Audio
+                        </button>
+                    </div>
+                    <div class="col-12" *ngIf="audioReplaceProgress > 0">
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-primary" role="progressbar" [style.width.%]="audioReplaceProgress"></div>
+                        </div>
+                        <small class="text-muted">Upload {{ audioReplaceProgress }}%</small>
+                    </div>
+                </div>
+
+                <hr class="border-secondary my-4">
+
+                <div class="d-flex justify-content-end">
+                    <button type="button" class="btn btn-outline-danger rounded-pill px-4" [disabled]="isSaving" (click)="deleteSong()">
+                        Delete Song
+                    </button>
+                </div>
+            </div>
+
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4 text-center" *ngIf="!selectedSong">
+                <div class="text-muted">Select a song from the left panel to manage it.</div>
+            </div>
+        </div>
+    </div>
+</div>

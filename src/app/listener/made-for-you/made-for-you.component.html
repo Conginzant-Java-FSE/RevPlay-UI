@@ -1,0 +1,42 @@
+<div class="content">
+    <h2 class="title">Made For You</h2>
+
+    <div *ngIf="isLoading" class="text-muted">Loading your picks...</div>
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger">{{ error }}</div>
+
+    <section *ngIf="!isLoading && !error" class="mb-4">
+        <h3 class="section-title">Recommended For You</h3>
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
+            <div class="col" *ngFor="let item of picks">
+                <button type="button" class="card-btn card bg-secondary-panel text-start border-0 p-3 w-100 h-100"
+                    (click)="playTrack(item)">
+                    <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                        <img [src]="((item.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')"
+                            class="img-fluid object-fit-cover h-100 w-100"
+                            loading="lazy">
+                    </div>
+                    <h6 class="mb-1 text-truncate">{{ item.title }}</h6>
+                    <p class="text-muted mb-0 small text-truncate">{{ item.artistName }}</p>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section *ngIf="!isLoading && !error">
+        <h3 class="section-title">Weekly Discovery</h3>
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3">
+            <div class="col" *ngFor="let item of weekly">
+                <button type="button" class="card-btn card bg-secondary-panel text-start border-0 p-3 w-100 h-100"
+                    (click)="playTrack(item)">
+                    <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                        <img [src]="((item.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')"
+                            class="img-fluid object-fit-cover h-100 w-100"
+                            loading="lazy">
+                    </div>
+                    <h6 class="mb-1 text-truncate">{{ item.title }}</h6>
+                    <p class="text-muted mb-0 small text-truncate">{{ item.artistName }}</p>
+                </button>
+            </div>
+        </div>
+    </section>
+</div>

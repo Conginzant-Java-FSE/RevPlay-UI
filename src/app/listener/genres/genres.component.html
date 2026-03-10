@@ -1,0 +1,85 @@
+<div class="genre-page premium-fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+        <div>
+            <h2 class="title mb-1">Browse Genres</h2>
+            <p class="text-muted mb-0">Choose a vibe and play songs instantly.</p>
+        </div>
+        <div class="selected-genre" *ngIf="selectedGenre">
+            <span class="label text-muted small">Selected</span>
+            <div class="value">{{ selectedGenre.name }}</div>
+        </div>
+    </div>
+
+    <div *ngIf="isGenresLoading" class="text-muted">Loading genres...</div>
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger">{{ error }}</div>
+
+    <div class="genre-grid mb-4" *ngIf="!isGenresLoading && !error">
+        <button type="button" class="genre-card" *ngFor="let genre of genres"
+            [class.active]="(selectedGenre?.id ?? selectedGenre?.genreId) === (genre?.id ?? genre?.genreId)"
+            (click)="selectGenre(genre)">
+            <span class="genre-name">{{ genre.name }}</span>
+            <i class="bi bi-arrow-up-right-circle-fill"></i>
+        </button>
+    </div>
+
+    <section class="songs-section bg-secondary-panel rounded-4 p-3 p-md-4" *ngIf="selectedGenre">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0 text-white">{{ selectedGenre.name }} Songs</h5>
+            <span class="text-muted small">{{ songs.length }} loaded</span>
+        </div>
+
+        <div *ngIf="isSongsLoading" class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+
+        <div *ngIf="songsError" class="alert alert-danger bg-dark border-danger text-danger mb-3">
+            {{ songsError }}
+        </div>
+
+        <div class="table-responsive" *ngIf="!isSongsLoading && !songsError">
+            <table class="table table-dark table-hover align-middle bg-transparent mb-0">
+                <thead>
+                    <tr class="text-muted">
+                        <th>#</th>
+                        <th>Title</th>
+                        <th>Artist</th>
+                        <th class="text-end">Duration</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let song of songs; let i = index">
+                        <td class="text-muted">{{ i + 1 + (page * pageSize) }}</td>
+                        <td class="text-truncate">{{ song.title || ('Song #' + song.songId) }}</td>
+                        <td class="text-muted">{{ song.artistName || '-' }}</td>
+                        <td class="text-end text-muted">{{ formatDuration(song.durationSeconds) }}</td>
+                        <td class="text-end">
+                            <div class="d-inline-flex align-items-center gap-2">
+                                <button class="btn btn-sm btn-outline-light rounded-circle" type="button" (click)="playSong(song)">
+                                    <i class="bi bi-play-fill"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-light rounded-circle" type="button" (click)="addToQueue(song)">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr *ngIf="songs.length === 0">
+                        <td colspan="5" class="text-center text-muted py-4">No songs available for this genre yet.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between mt-3" *ngIf="!isSongsLoading && !songsError && totalPages > 1">
+            <button type="button" class="btn btn-outline-light rounded-pill px-3" (click)="previousPage()" [disabled]="page <= 0">
+                Previous
+            </button>
+            <span class="text-muted small">Page {{ page + 1 }} of {{ totalPages }}</span>
+            <button type="button" class="btn btn-outline-light rounded-pill px-3"
+                (click)="nextPage()" [disabled]="page >= totalPages - 1">
+                Next
+            </button>
+        </div>
+    </section>
+</div>

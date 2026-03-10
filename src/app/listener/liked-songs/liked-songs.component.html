@@ -1,0 +1,78 @@
+<div class="content">
+    <h2 class="title">Liked Songs</h2>
+
+    <div *ngIf="isLoading" class="text-muted">Loading liked songs...</div>
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger">{{ error }}</div>
+    <div *ngIf="actionMessage" class="alert alert-success bg-dark border-success text-success">{{ actionMessage }}</div>
+
+    <div *ngIf="!isLoading && !error && likedSongs.length === 0" class="empty-note">
+        You have not liked any songs yet.
+    </div>
+
+    <div class="table-responsive" *ngIf="!isLoading && !error && likedSongs.length > 0">
+        <table class="table table-dark align-middle">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Artist</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let song of likedSongs">
+                    <td>
+                        <div class="track-cell">
+                            <img [src]="((song.imageUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" alt="Song cover" class="track-thumb" loading="lazy">
+                            <span class="track-title text-truncate">{{ song.title }}</span>
+                        </div>
+                    </td>
+                    <td>{{ song.artistName }}</td>
+                    <td class="text-end">
+                        <div class="d-inline-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-primary rounded-pill" (click)="playSong(song)">
+                                Play
+                            </button>
+                            <div class="dropdown">
+                                <button type="button" class="btn btn-sm btn-outline-light rounded-circle" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow">
+                                    <li><button type="button" class="dropdown-item" (click)="removeFromLikedSongs(song)">Remove from liked songs</button></li>
+                                    <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
+                                    <li><button type="button" class="dropdown-item" (click)="addToQueue(song)">Add to queue</button></li>
+                                    <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
+                                    <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
+                                    <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card bg-secondary-panel border-0 p-3 mt-4" *ngIf="showAddToPlaylistPicker">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h5 class="mb-0 text-white">Add "{{ songForPlaylistAdd?.title || 'Song' }}" to Playlist</h5>
+            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" (click)="closeAddToPlaylistPicker()">Close</button>
+        </div>
+        <div class="row g-2 align-items-end">
+            <div class="col-md-9">
+                <label class="form-label text-muted small">Choose playlist</label>
+                <select class="form-select custom-input" [(ngModel)]="targetPlaylistIdForSongAdd">
+                    <option value="">Select playlist</option>
+                    <option *ngFor="let playlist of playlistTargets" [ngValue]="'' + playlist.id">
+                        {{ playlist.name }}
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="button" class="btn btn-primary rounded-pill text-dark fw-bold w-100"
+                    [disabled]="isActionSaving || !targetPlaylistIdForSongAdd" (click)="addCurrentSongToSelectedPlaylist()">
+                    Add
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

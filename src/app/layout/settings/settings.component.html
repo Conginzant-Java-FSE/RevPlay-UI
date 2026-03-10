@@ -1,0 +1,67 @@
+<section class="settings-shell">
+    <div class="settings-header">
+        <h1 class="text-white fw-bold mb-1">Settings</h1>
+        <p class="text-muted m-0">Choose the appearance mode for your dashboard.</p>
+    </div>
+
+    <div class="settings-nav mt-4">
+        <button type="button" class="settings-nav-item" [class.active]="activeSection === 'theme'" (click)="showSection('theme')">
+            Theme
+        </button>
+        <button type="button" class="settings-nav-item" [class.active]="activeSection === 'support'" (click)="showSection('support')">
+            Contact Support
+        </button>
+    </div>
+
+    <div class="settings-card bg-secondary-panel rounded-4 p-4 mt-4" *ngIf="activeSection === 'theme'">
+        <h5 class="text-white fw-bold mb-3">Theme</h5>
+        <div class="theme-grid">
+            <button type="button" class="theme-option" [class.active]="(theme$ | async) === 'dark'" (click)="setTheme('dark')">
+                <span class="theme-icon"><i class="bi bi-moon-stars-fill"></i></span>
+                <span class="theme-text">
+                    <span class="theme-title">Dark Mode</span>
+                    <span class="theme-desc">Low-glare visual style for focused viewing.</span>
+                </span>
+            </button>
+
+            <button type="button" class="theme-option" [class.active]="(theme$ | async) === 'light'" (click)="setTheme('light')">
+                <span class="theme-icon"><i class="bi bi-brightness-high-fill"></i></span>
+                <span class="theme-text">
+                    <span class="theme-title">Light Mode</span>
+                    <span class="theme-desc">Bright and clean view for daytime usage.</span>
+                </span>
+            </button>
+        </div>
+    </div>
+
+    <div class="settings-card bg-secondary-panel rounded-4 p-4 mt-4" *ngIf="activeSection === 'support'">
+        <h5 class="text-white fw-bold mb-3">Contact Support</h5>
+        <p class="text-muted mb-3">If you need help with RevPlay, please reach out to our support team.</p>
+        <div class="support-email-label text-muted small mb-1">Email</div>
+        <div class="support-email text-white fw-semibold mb-4">{{ supportEmail }}</div>
+
+        <div class="support-form">
+            <div>
+                <label class="form-label text-muted small">Your Name</label>
+                <input type="text" class="form-control custom-input" [(ngModel)]="supportForm.name" placeholder="Enter your name">
+            </div>
+
+            <div>
+                <label class="form-label text-muted small">Your Email</label>
+                <input type="email" class="form-control custom-input" [(ngModel)]="supportForm.email" placeholder="Enter your email">
+            </div>
+
+            <div>
+                <label class="form-label text-muted small">Problem</label>
+                <textarea rows="5" class="form-control custom-input" [(ngModel)]="supportForm.problem"
+                    placeholder="Describe the issue you are facing"></textarea>
+            </div>
+        </div>
+
+        <button type="button" class="btn btn-primary rounded-pill text-dark fw-bold px-4 mt-4"
+            [disabled]="!supportForm.name.trim() || !supportForm.email.trim() || !supportForm.problem.trim()"
+            (click)="sendEmail()">
+            Send Email
+        </button>
+    </div>
+</section>

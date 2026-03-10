@@ -1,63 +1,28 @@
-<div class="auth-container d-flex align-items-center justify-content-center min-vh-100">
-    <div class="auth-card p-5 rounded-4 shadow-lg w-100" style="max-width: 450px;">
-        <div class="text-center mb-5">
-            <img class="auth-logo mb-2" src="assets/images/logo.png" alt="RevPlay logo">
+<div class="auth-wrapper">
+    <section class="auth-left">
+        <div class="branding-backdrop"></div>
+        <h1 class="branding-wordmark">REVPLAY</h1>
+        <div class="branding-content">
+            <div class="branding-badge">
+                <img class="auth-logo" src="assets/images/logo.png" alt="RevPlay logo">
+                <div class="branding-badge-copy">
+                    <p class="branding-brand">RevPlay</p>
+                    <p class="branding-kicker">Music for every moment</p>
+                    <span class="branding-mini">Discover. Save. Replay.</span>
+                </div>
+            </div>
+            <h2 class="branding-title hero-title">Step into your next listening session.</h2>
+            <p class="branding-copy">Build your account, follow artists, and start shaping your daily mix with a cleaner, more personal listening home.</p>
         </div>
+    </section>
 
-        <h3 class="fw-bold mb-4 text-white">Join RevPlay</h3>
-
-        <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-4 small">
-            <i class="bi bi-exclamation-circle-fill me-2"></i>
-            {{ error }}
-        </div>
-
-        <form (ngSubmit)="onSubmit()" #regForm="ngForm">
-            <div class="mb-3">
-                <label class="form-label text-muted small fw-bold text-uppercase">What's your full name?</label>
-                <input type="text" name="fullName" class="form-control custom-input" [(ngModel)]="userData.fullName"
-                    required minlength="2" maxlength="60" placeholder="Enter your full name">
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label text-muted small fw-bold text-uppercase">What's your username?</label>
-                <input type="text" name="username" class="form-control custom-input" [(ngModel)]="userData.username"
-                    required minlength="3" maxlength="30" placeholder="Pick a username">
-                <small class="text-muted d-block mt-1">Use 3-30 chars: letters, numbers, dot, underscore.</small>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label text-muted small fw-bold text-uppercase">What's your email?</label>
-                <input type="email" name="email" class="form-control custom-input" [(ngModel)]="userData.email" required
-                    email placeholder="Enter your email">
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label text-muted small fw-bold text-uppercase">Create a password</label>
-                <input type="password" name="password" class="form-control custom-input" [(ngModel)]="userData.password"
-                    required [minlength]="minPasswordLength" placeholder="Create a password">
-                <small class="text-muted d-block mt-1">At least 8 chars with uppercase, lowercase, number, special char.</small>
-                <small class="text-danger d-block mt-1" *ngIf="userData.password && !isPasswordStrong()">
-                    Password is weak. Please follow all password rules.
-                </small>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label text-muted small fw-bold text-uppercase">Confirm password</label>
-                <input type="password" name="confirmPassword" class="form-control custom-input"
-                    [(ngModel)]="userData.confirmPassword" required minlength="8" placeholder="Re-enter your password">
-                <small class="text-danger mt-1 d-block"
-                    *ngIf="userData.confirmPassword && !isPasswordMatch()">
-                    Passwords do not match.
-                </small>
-            </div>
-
-            <div class="mb-4">
-                <label class="form-label text-muted small fw-bold text-uppercase">I want to be an...</label>
-                <select name="role" class="form-select custom-input" [(ngModel)]="userData.role">
-                    <option value="LISTENER">Listener</option>
-                    <option value="ARTIST">Artist</option>
-                    <option value="ADMIN">Admin</option>
-                </select>
+    <section class="auth-right">
+        <div class="auth-card auth-card-register rounded-4 shadow-lg">
+            <div class="auth-card-header">
+                <img class="auth-logo auth-logo-mobile" src="assets/images/logo.png" alt="RevPlay logo">
+                <p class="auth-eyebrow">Create your account</p>
+                <h3 class="fw-bold mb-2 text-white">Join RevPlay</h3>
+                <p class="auth-subtitle mb-0">Start listening, discovering, and saving your favorites.</p>
             </div>
 
             <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-3 small">
@@ -65,18 +30,68 @@
                 {{ error }}
             </div>
 
-            <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-bold text-dark mb-4 shadow"
-                [disabled]="!regForm.form.valid || isLoading || !isPasswordMatch() || !isPasswordStrong() || !isEmailValid() || !isUsernameValid() || !isFullNameValid()">
-                <span *ngIf="!isLoading">SIGN UP</span>
-                <span *ngIf="isLoading" class="spinner-border spinner-border-sm" role="status"></span>
-            </button>
+            <form (ngSubmit)="onSubmit()" #regForm="ngForm">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label text-muted small fw-bold">What's your full name?</label>
+                        <input type="text" name="fullName" class="form-control custom-input" [(ngModel)]="userData.fullName"
+                            required minlength="2" maxlength="60" placeholder="Enter your full name">
+                    </div>
 
-            <div class="text-center">
-                <p class="text-muted mb-0">Have an account?
-                    <a routerLink="/auth/login"
-                        class="text-white fw-bold text-decoration-none border-bottom border-white pb-1 ms-1">LOG IN</a>
-                </p>
-            </div>
-        </form>
-    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted small fw-bold">What's your username?</label>
+                        <input type="text" name="username" class="form-control custom-input" [(ngModel)]="userData.username"
+                            required minlength="3" maxlength="30" placeholder="Pick a username">
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label text-muted small fw-bold">What's your email?</label>
+                        <input type="email" name="email" class="form-control custom-input" [(ngModel)]="userData.email" required
+                            email placeholder="Enter your email">
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label text-muted small fw-bold">I want to be an...</label>
+                        <select name="role" class="form-select custom-input" [(ngModel)]="userData.role">
+                            <option value="LISTENER">Listener</option>
+                            <option value="ARTIST">Artist</option>
+                            <option value="ADMIN">Admin</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label text-muted small fw-bold">Create a password</label>
+                        <input type="password" name="password" class="form-control custom-input" [(ngModel)]="userData.password"
+                            required [minlength]="minPasswordLength" placeholder="Create a password">
+                        <small class="text-danger d-block mt-1" *ngIf="userData.password && !isPasswordStrong()">
+                            Password is weak. Please follow all password rules.
+                        </small>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label text-muted small fw-bold">Confirm password</label>
+                        <input type="password" name="confirmPassword" class="form-control custom-input"
+                            [(ngModel)]="userData.confirmPassword" required minlength="8" placeholder="Re-enter your password">
+                        <small class="text-danger mt-1 d-block"
+                            *ngIf="userData.confirmPassword && !isPasswordMatch()">
+                            Passwords do not match.
+                        </small>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary signup-btn w-100 rounded-pill py-3 fw-bold text-dark mt-4 mb-3 shadow"
+                    [disabled]="!regForm.form.valid || isLoading || !isPasswordMatch() || !isPasswordStrong() || !isEmailValid() || !isUsernameValid() || !isFullNameValid()">
+                    <span *ngIf="!isLoading">SIGN UP</span>
+                    <span *ngIf="isLoading" class="spinner-border spinner-border-sm" role="status"></span>
+                </button>
+
+                <div class="text-center">
+                    <p class="text-muted mb-0">Have an account?
+                        <a routerLink="/auth/login"
+                            class="text-white fw-bold text-decoration-none border-bottom border-white pb-1 ms-1">LOG IN</a>
+                    </p>
+                </div>
+            </form>
+        </div>
+    </section>
 </div>

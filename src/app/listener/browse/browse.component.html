@@ -1,0 +1,384 @@
+<div class="home-container premium-fade-in">
+    <div *ngIf="isLoading" class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3 mb-4">
+        <div class="col" *ngFor="let i of [1,2,3,4,5,6]">
+            <div class="card bg-secondary-panel border-0 p-3 h-100">
+                <div class="ratio ratio-1x1 skeleton mb-3"></div>
+                <div class="skeleton mb-2" style="height: 1rem; width: 86%;"></div>
+                <div class="skeleton" style="height: 0.8rem; width: 62%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div *ngIf="error && !isLoading" class="alert alert-danger bg-dark border-danger text-danger mb-4 shadow-sm">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+        <button class="btn btn-link text-danger p-0 ms-2 text-decoration-none" type="button" (click)="loadData()">Retry</button>
+    </div>
+
+    <div *ngIf="notice && !isLoading && !error" class="alert alert-warning bg-dark border-warning text-warning mb-4 shadow-sm">
+        <i class="bi bi-info-circle-fill me-2"></i>{{ notice }}
+    </div>
+
+    <div *ngIf="actionMessage && !isLoading && !error" class="alert alert-success bg-dark border-success text-success mb-4 shadow-sm">
+        <i class="bi bi-check-circle-fill me-2"></i>{{ actionMessage }}
+    </div>
+
+    <div class="card bg-secondary-panel border-0 p-3 mb-4" *ngIf="showAddToPlaylistPicker">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h5 class="mb-0 text-white">Add "{{ songForPlaylistAdd?.title || 'Song' }}" to Playlist</h5>
+            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" (click)="closeAddToPlaylistPicker()">Close</button>
+        </div>
+        <div class="row g-2 align-items-end">
+            <div class="col-md-9">
+                <label class="form-label text-muted small">Choose playlist</label>
+                <select class="form-select custom-input" [(ngModel)]="targetPlaylistIdForSongAdd">
+                    <option value="">Select playlist</option>
+                    <option *ngFor="let playlist of playlistTargets" [ngValue]="'' + playlist.id">
+                        {{ playlist.name }}
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="button" class="btn btn-primary rounded-pill text-dark fw-bold w-100"
+                    [disabled]="isActionSaving || !targetPlaylistIdForSongAdd" (click)="addCurrentSongToSelectedPlaylist()">
+                    Add
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div *ngIf="!isLoading && !error">
+        <div class="music-scroll-shell">
+            <div class="music-scroll-track">
+                <app-recently-played class="music-section"></app-recently-played>
+
+                <section class="section-block music-section">
+                    <h2 class="section-title">Trending Now</h2>
+                    <div class="song-row" *ngIf="trendingNow.length > 0">
+                        <div class="song-col" *ngFor="let song of trendingNow">
+                            <div class="song-card-wrap">
+                                <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
+                                    (click)="playTrack(song)">
+                                    <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                                        <img [src]="((song.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
+                                            class="img-fluid object-fit-cover h-100 w-100"
+                                            loading="lazy">
+                                    </div>
+                                    <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
+                                    <p class="text-muted small mb-0 text-truncate">{{ song.artistName }}</p>
+                                    <span class="play-pill"><i class="bi bi-play-fill"></i></span>
+                                </button>
+                                <div class="dropdown song-menu-dropdown">
+                                    <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
+                                        <i class="bi bi-three-dots"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
+                                        <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
+                                        <li *ngIf="isSongInPlaylist(song)"><button type="button" class="dropdown-item" (click)="removeFromPlaylistForSong(song)">Remove from playlist</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-block music-section">
+                    <h2 class="section-title">Recommended For You</h2>
+                    <div class="song-row" *ngIf="recommendedForYou.length > 0; else noRecommendations">
+                        <div class="song-col" *ngFor="let song of recommendedForYou">
+                            <div class="song-card-wrap">
+                                <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
+                                    (click)="playTrack(song)">
+                                    <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                                        <img [src]="((song.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
+                                            class="img-fluid object-fit-cover h-100 w-100"
+                                            loading="lazy">
+                                    </div>
+                                    <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
+                                    <p class="text-muted small mb-0 text-truncate">{{ song.artistName }}</p>
+                                    <span class="play-pill"><i class="bi bi-play-fill"></i></span>
+                                </button>
+                                <div class="dropdown song-menu-dropdown">
+                                    <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
+                                        <i class="bi bi-three-dots"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
+                                        <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
+                                        <li *ngIf="isSongInPlaylist(song)"><button type="button" class="dropdown-item" (click)="removeFromPlaylistForSong(song)">Remove from playlist</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-block music-section">
+                    <h2 class="section-title">Made For You</h2>
+                    <div class="song-row" *ngIf="madeForYou.length > 0; else noMadeForYou">
+                        <div class="song-col" *ngFor="let song of madeForYou">
+                            <div class="song-card-wrap">
+                                <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
+                                    (click)="playTrack(song)">
+                                    <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                                        <img [src]="((song.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
+                                            class="img-fluid object-fit-cover h-100 w-100"
+                                            loading="lazy">
+                                    </div>
+                                    <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
+                                    <p class="text-muted small mb-0 text-truncate">{{ song.artistName }}</p>
+                                    <span class="play-pill"><i class="bi bi-play-fill"></i></span>
+                                </button>
+                                <div class="dropdown song-menu-dropdown">
+                                    <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
+                                        <i class="bi bi-three-dots"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
+                                        <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
+                                        <li *ngIf="isSongInPlaylist(song)"><button type="button" class="dropdown-item" (click)="removeFromPlaylistForSong(song)">Remove from playlist</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
+                                        <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section-block compact-grid music-section">
+                    <h2 class="section-title">Discovery Feed</h2>
+                    <div class="song-row" *ngIf="discoveryFeed.length > 0; else noDiscoveryFeed">
+                        <div class="song-col" *ngFor="let song of discoveryFeed">
+                            <div class="song-card-wrap">
+                        <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
+                            (click)="playTrack(song)">
+                            <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                                <img [src]="((song.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
+                                    class="img-fluid object-fit-cover h-100 w-100"
+                                    loading="lazy">
+                            </div>
+                            <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
+                            <p class="text-muted small mb-0 text-truncate">{{ song.artistName }}</p>
+                            <span class="play-pill"><i class="bi bi-play-fill"></i></span>
+                        </button>
+                        <div class="dropdown song-menu-dropdown">
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
+                                <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
+                                <li *ngIf="isSongInPlaylist(song)"><button type="button" class="dropdown-item" (click)="removeFromPlaylistForSong(song)">Remove from playlist</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                    </div>
+                </section>
+
+                <section class="section-block music-section">
+                    <h2 class="section-title">System Mix Playlists</h2>
+                    <div class="mix-strip" *ngIf="mixPlaylists.length > 0; else noMixPlaylists">
+                        <button type="button"
+                            class="mix-strip-card"
+                            *ngFor="let mix of mixPlaylists; let i = index"
+                            (click)="openMixPlaylist(mix)">
+                    <div class="mix-strip-art" [style.background]="getMixGradient(mix, i)">
+                        <span class="mix-strip-tag">System Mix</span>
+                    </div>
+                    <div class="mix-strip-copy">
+                        <h6 class="mb-1 text-truncate">{{ mix.name }}</h6>
+                        <p class="text-muted small mb-0 text-truncate">Open curated songs</p>
+                    </div>
+                    <span class="mix-strip-arrow"><i class="bi bi-arrow-right"></i></span>
+                </button>
+                    </div>
+                </section>
+
+                <section class="section-block compact-grid music-section">
+                    <h2 class="section-title">Browse Top Artists</h2>
+                    <div class="song-row" *ngIf="topArtists.length > 0">
+                        <div class="song-col" *ngFor="let artist of topArtists">
+                            <div class="artist-card card bg-secondary-panel border-0 text-center p-3 h-100">
+                        <div class="ratio ratio-1x1 rounded-circle overflow-hidden bg-dark mb-3 mx-auto artist-avatar">
+                            <img [src]="(((artist.image || artist.imageUrl) | protectedMedia | async) || 'assets/images/placeholder-artist.png')"
+                                (error)="onArtistImageLoadError($event)"
+                                class="img-fluid object-fit-cover h-100 w-100" loading="lazy">
+                        </div>
+                        <h6 class="mb-1 text-truncate">{{ artist.displayName || artist.name }}</h6>
+                        <p class="text-muted small mb-2">{{ artist.playCount }} plays</p>
+                        <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                            (click)="toggleArtistFollow(artist)">
+                            {{ artist.isFollowed ? 'Unfollow' : 'Follow' }}
+                        </button>
+                    </div>
+                </div>
+                    </div>
+                </section>
+
+                <section class="section-block compact-grid music-section">
+                    <h2 class="section-title">Browse New Releases</h2>
+                    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3">
+                        <div class="col" *ngFor="let song of newReleases">
+                            <div class="song-card-wrap">
+                        <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
+                            (click)="playTrack(song)">
+                            <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                                <img [src]="((song.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
+                                    class="img-fluid object-fit-cover h-100 w-100"
+                                    loading="lazy">
+                            </div>
+                            <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
+                            <p class="text-muted small mb-0 text-truncate">{{ song.artistName }}</p>
+                            <span class="play-pill"><i class="bi bi-play-fill"></i></span>
+                        </button>
+                        <div class="dropdown song-menu-dropdown">
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
+                                <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
+                                <li *ngIf="isSongInPlaylist(song)"><button type="button" class="dropdown-item" (click)="removeFromPlaylistForSong(song)">Remove from playlist</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                    </div>
+                </section>
+
+                <section class="section-block compact-grid music-section">
+                    <h2 class="section-title">Browse Songs</h2>
+                    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3">
+                        <div class="col" *ngFor="let song of browseSongs">
+                            <div class="song-card-wrap">
+                        <button class="music-card card bg-secondary-panel text-start text-white border-0 p-3 h-100 w-100" type="button"
+                            (click)="playTrack(song)">
+                            <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                                <img [src]="((song.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
+                                    class="img-fluid object-fit-cover h-100 w-100"
+                                    loading="lazy">
+                            </div>
+                            <h6 class="mb-1 text-truncate">{{ song.title }}</h6>
+                            <p class="text-muted small mb-0 text-truncate">{{ song.artistName }}</p>
+                            <span class="play-pill"><i class="bi bi-play-fill"></i></span>
+                        </button>
+                        <div class="dropdown song-menu-dropdown">
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-circle song-menu-btn" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-offset="0,8" aria-expanded="false">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow song-actions-menu">
+                                <li><button type="button" class="dropdown-item" (click)="toggleSongLike(song)">{{ isSongLiked(song) ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker(song)">Add to playlist</button></li>
+                                <li *ngIf="isSongInPlaylist(song)"><button type="button" class="dropdown-item" (click)="removeFromPlaylistForSong(song)">Remove from playlist</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="addSongToQueue(song)">Add to queue</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="downloadSong(song)">{{ isDownloadingSongId === (song.songId || song.contentId || song.id) ? 'Downloading...' : 'Download' }}</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="shareSong(song)">Share</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="goToAlbum(song)">Go to album</button></li>
+                                <li><button type="button" class="dropdown-item" (click)="goToArtist(song)">Go to artist</button></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                    </div>
+                </section>
+
+                <section class="section-block compact-grid music-section">
+                    <h2 class="section-title">Popular Podcasts</h2>
+                    <div class="song-row" *ngIf="popularPodcasts.length > 0">
+                        <div class="song-col" *ngFor="let podcast of popularPodcasts">
+                            <div class="card bg-secondary-panel border-0 p-3 h-100 podcast-card">
+                        <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                            <img [src]="((podcast.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
+                                class="img-fluid object-fit-cover h-100 w-100" loading="lazy">
+                        </div>
+                        <h6 class="mb-1 text-truncate">{{ podcast.title }}</h6>
+                        <p class="text-muted small mb-2">{{ podcast.playCount }} plays</p>
+                        <div class="d-flex gap-2 mt-auto">
+                            <button type="button" class="btn btn-sm btn-primary text-dark rounded-pill px-3"
+                                (click)="playPodcast(podcast)">
+                                Play
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                                (click)="togglePodcastFollow(podcast)">
+                                {{ podcast.isFollowed ? 'Unfollow' : 'Follow' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                    </div>
+                </section>
+
+                <section class="section-block compact-grid music-section">
+                    <h2 class="section-title">Recommended Podcasts</h2>
+                    <div class="song-row" *ngIf="recommendedPodcasts.length > 0">
+                        <div class="song-col" *ngFor="let podcast of recommendedPodcasts">
+                            <div class="card bg-secondary-panel border-0 p-3 h-100 podcast-card">
+                        <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                            <img [src]="((podcast.coverUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverLoadError($event)"
+                                class="img-fluid object-fit-cover h-100 w-100" loading="lazy">
+                        </div>
+                        <h6 class="mb-1 text-truncate">{{ podcast.title }}</h6>
+                        <p class="text-muted small mb-2 text-truncate">{{ podcast.description || 'Recommended for your taste' }}</p>
+                        <div class="d-flex gap-2 mt-auto">
+                            <button type="button" class="btn btn-sm btn-primary text-dark rounded-pill px-3"
+                                (click)="playPodcast(podcast)">
+                                Play
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                                (click)="togglePodcastFollow(podcast)">
+                                {{ podcast.isFollowed ? 'Unfollow' : 'Follow' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <ng-template #noRecommendations>
+        <div class="empty-note">No recommendation data yet.</div>
+    </ng-template>
+
+    <ng-template #noMadeForYou>
+        <div class="empty-note">No weekly picks available yet.</div>
+    </ng-template>
+
+    <ng-template #noDiscoveryFeed>
+        <div class="empty-note">No discovery feed data available.</div>
+    </ng-template>
+
+    <ng-template #noMixPlaylists>
+        <div class="empty-note">No mix playlists available right now.</div>
+    </ng-template>
+</div>
+
+
+
+

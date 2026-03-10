@@ -1,0 +1,136 @@
+<div class="content">
+    <h2 class="title">Podcasts</h2>
+
+    <div *ngIf="isLoading" class="text-muted">Loading podcasts...</div>
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger">{{ error }}</div>
+    <div *ngIf="actionMessage && !isLoading && !error" class="alert alert-success bg-dark border-success text-success">
+        {{ actionMessage }}
+    </div>
+
+    <section *ngIf="selectedPodcast && !isLoading && !error" class="podcast-focus card bg-secondary-panel border-0 rounded-4 p-4 mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div class="d-flex flex-wrap gap-3 flex-grow-1">
+                <div class="podcast-focus-cover ratio ratio-1x1 bg-dark rounded overflow-hidden">
+                    <img [src]="((selectedPodcast.coverArtUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')"
+                        (error)="onPodcastCoverError($event)"
+                        alt="Selected podcast cover" class="img-fluid object-fit-cover h-100 w-100">
+                </div>
+                <div class="podcast-focus-copy">
+                    <div class="text-uppercase small text-muted mb-1">Podcast</div>
+                    <h3 class="mb-2">{{ selectedPodcast.title }}</h3>
+                    <p class="text-muted mb-3">{{ selectedPodcast.description || 'Choose any episode and start listening.' }}</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-primary text-dark rounded-pill px-3"
+                            (click)="playPodcast(selectedPodcast)">
+                            Play Latest
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                            (click)="togglePodcastFollow(selectedPodcast)">
+                            {{ selectedPodcast.isFollowed ? 'Unfollow' : 'Follow' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" (click)="closePodcastDetails()">
+                Close
+            </button>
+        </div>
+
+        <div class="episode-panel mt-4">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                <h4 class="m-0">Episodes</h4>
+                <span class="small text-muted">{{ selectedPodcastEpisodes.length }} available</span>
+            </div>
+
+            <div *ngIf="isEpisodesLoading" class="text-muted">Loading episodes...</div>
+            <div *ngIf="episodeError && !isEpisodesLoading" class="alert alert-dark border-secondary text-muted mb-0">
+                {{ episodeError }}
+            </div>
+
+            <div *ngIf="!isEpisodesLoading && !episodeError" class="episode-picker">
+                <button type="button" class="episode-row"
+                    *ngFor="let episode of selectedPodcastEpisodes"
+                    [class.active]="isSelectedEpisode(episode)"
+                    (click)="playEpisode(episode)">
+                    <div class="episode-copy">
+                        <div class="fw-semibold text-truncate">{{ episode.title }}</div>
+                        <small class="text-muted">{{ formatEpisodeMeta(episode) }}</small>
+                    </div>
+                    <span class="episode-action">{{ isSelectedEpisode(episode) ? 'Playing' : 'Play' }}</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section *ngIf="!isLoading && !error" class="mb-4">
+        <h3 class="section-title">Popular Podcasts</h3>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 row-cols-xl-5 g-3">
+            <div class="col" *ngFor="let podcast of popular">
+                <div class="card bg-secondary-panel border-0 p-3 h-100 podcast-card">
+                    <button type="button" class="podcast-card-main" (click)="openPodcastDetails(podcast)">
+                        <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                        <img [src]="((podcast.coverArtUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')"
+                            (error)="onPodcastCoverError($event)"
+                            alt="Podcast cover" class="img-fluid object-fit-cover h-100 w-100" loading="lazy">
+                        </div>
+                        <h6 class="mb-1 text-truncate">{{ podcast.title }}</h6>
+                        <p class="small text-muted mb-2">{{ podcast.playCount }} plays</p>
+                        <div class="episode-preview" *ngIf="podcast.episodePreviewTitles?.length">
+                            <div class="episode-preview-item" *ngFor="let label of podcast.episodePreviewTitles">{{ label }}</div>
+                        </div>
+                    </button>
+                    <div class="podcast-card-actions d-flex gap-2 mt-auto w-100">
+                        <button type="button" class="btn btn-sm btn-primary text-dark rounded-pill px-3"
+                            (click)="playPodcast(podcast)">
+                            Play
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                            (click)="openPodcastDetails(podcast)">
+                            Episodes
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                            (click)="togglePodcastFollow(podcast)">
+                            {{ podcast.isFollowed ? 'Unfollow' : 'Follow' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section *ngIf="!isLoading && !error">
+        <h3 class="section-title">Recommended Podcasts</h3>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 row-cols-xl-5 g-3">
+            <div class="col" *ngFor="let podcast of recommended">
+                <div class="card bg-secondary-panel border-0 p-3 h-100 podcast-card">
+                    <button type="button" class="podcast-card-main" (click)="openPodcastDetails(podcast)">
+                        <div class="ratio ratio-1x1 bg-dark rounded overflow-hidden mb-3">
+                        <img [src]="((podcast.coverArtUrl | protectedMedia | async) || 'assets/images/placeholder-album.png')"
+                            (error)="onPodcastCoverError($event)"
+                            alt="Podcast cover" class="img-fluid object-fit-cover h-100 w-100" loading="lazy">
+                        </div>
+                        <h6 class="mb-1 text-truncate">{{ podcast.title }}</h6>
+                        <p class="small text-muted mb-2 text-truncate">{{ podcast.description || 'Recommended based on your listening' }}</p>
+                        <div class="episode-preview" *ngIf="podcast.episodePreviewTitles?.length">
+                            <div class="episode-preview-item" *ngFor="let label of podcast.episodePreviewTitles">{{ label }}</div>
+                        </div>
+                    </button>
+                    <div class="podcast-card-actions d-flex gap-2 mt-auto w-100">
+                        <button type="button" class="btn btn-sm btn-primary text-dark rounded-pill px-3"
+                            (click)="playPodcast(podcast)">
+                            Play
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                            (click)="openPodcastDetails(podcast)">
+                            Episodes
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3"
+                            (click)="togglePodcastFollow(podcast)">
+                            {{ podcast.isFollowed ? 'Unfollow' : 'Follow' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>

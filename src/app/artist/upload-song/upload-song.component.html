@@ -1,0 +1,153 @@
+<div class="upload-song-page premium-fade-in p-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+        <div>
+            <h1 class="fw-bold text-white mb-1">Song Upload Studio</h1>
+            <p class="text-muted mb-0">Upload tracks with cover art, metadata, and real-time progress.</p>
+        </div>
+        <a routerLink="/creator-studio/songs" class="btn btn-outline-light rounded-pill px-4">Manage Songs</a>
+    </div>
+
+    <div *ngIf="successMessage" class="alert alert-success bg-dark border-success text-success mb-3">{{ successMessage }}</div>
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-3">{{ error }}</div>
+
+    <div class="row g-4">
+        <div class="col-xl-5">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-3 files-card">
+                <h5 class="text-white mb-3">Files</h5>
+
+                <div class="drop-zone cover-zone mb-3" [class.dragging]="isDraggingCover" (dragover)="onCoverDragOver($event)"
+                    (dragleave)="onCoverDragLeave($event)" (drop)="onCoverDrop($event)">
+                    <input type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="d-none" #coverPicker (change)="onCoverFileSelected($event)">
+                    <button type="button" class="btn btn-sm btn-outline-light rounded-pill mb-2" (click)="coverPicker.click()">Select Cover Image</button>
+                    <div class="preview-wrapper" *ngIf="coverImagePreview">
+                        <img [src]="coverImagePreview" alt="Cover preview">
+                    </div>
+                    <div *ngIf="!coverImagePreview" class="text-muted small text-center">
+                        Drag and drop cover image here
+                    </div>
+                </div>
+
+                <div class="drop-zone audio-zone" [class.dragging]="isDraggingAudio" (dragover)="onAudioDragOver($event)"
+                    (dragleave)="onAudioDragLeave($event)" (drop)="onAudioDrop($event)">
+                    <input type="file" accept=".mp3,audio/*" class="d-none" #audioPicker (change)="onAudioFileSelected($event)">
+                    <button type="button" class="btn btn-sm btn-outline-light rounded-pill mb-2" (click)="audioPicker.click()">Select Audio File</button>
+                    <div class="text-white small fw-bold text-truncate" *ngIf="audioFileName">{{ audioFileName }}</div>
+                    <div class="text-muted small" *ngIf="audioFileName">Duration: {{ audioDurationSeconds }}s</div>
+                    <div *ngIf="!audioFileName" class="text-muted small text-center">Drag and drop MP3/audio file here</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-7">
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4">
+                <h5 class="text-white mb-3">Song Metadata</h5>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Title</label>
+                        <input class="form-control custom-input" [(ngModel)]="songForm.title" maxlength="200" placeholder="Track title">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Artist</label>
+                        <input class="form-control custom-input" [(ngModel)]="songForm.artist" readonly placeholder="Artist name">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Album</label>
+                        <select class="form-select custom-input" [(ngModel)]="songForm.albumId">
+                            <option value="">No Album (NULL)</option>
+                            <option *ngFor="let album of albums" [ngValue]="'' + (album.id || album.albumId)">
+                                {{ album.title }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Genre</label>
+                        <select class="form-select custom-input" [(ngModel)]="songForm.genreId">
+                            <option value="">No genre</option>
+                            <option *ngFor="let genre of genres" [ngValue]="'' + genre.id">
+                                {{ genre.name }}
+                            </option>
+                        </select>
+                        <small class="text-muted d-block mt-1">Genre list comes from admin-managed genres.</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Visibility</label>
+                        <select class="form-select custom-input" [(ngModel)]="songForm.visibility">
+                            <option [ngValue]="'PUBLIC'">PUBLIC</option>
+                            <option [ngValue]="'UNLISTED'">UNLISTED</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Artist ID</label>
+                        <input class="form-control custom-input" [value]="artistId || '-'" readonly>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted small">Description (optional)</label>
+                        <textarea class="form-control custom-input" rows="3" [(ngModel)]="songForm.description"
+                            placeholder="A short note for this upload"></textarea>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button type="button" class="btn btn-primary rounded-pill px-4 text-dark fw-bold"
+                        [disabled]="isUploading" (click)="uploadSong()">
+                        <span *ngIf="!isUploading">Upload Song</span>
+                        <span *ngIf="isUploading">Uploading...</span>
+                    </button>
+                </div>
+
+                <div class="mt-3" *ngIf="isUploading || uploadProgress > 0">
+                    <div class="progress" style="height: 7px;">
+                        <div class="progress-bar bg-primary progress-bar-striped" [class.progress-bar-animated]="isUploading"
+                            role="progressbar" [style.width.%]="uploadProgress"></div>
+                    </div>
+                    <small class="text-muted">Upload progress: {{ uploadProgress }}%</small>
+                </div>
+            </div>
+
+            <div class="card bg-secondary-panel border-0 rounded-4 p-4 mt-4">
+                <h5 class="text-white mb-3">Replace Song Audio</h5>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">Song Name</label>
+                        <select class="form-select custom-input" [(ngModel)]="replaceTargetSongId">
+                            <option value="">Select song</option>
+                            <option *ngFor="let song of replaceSongOptions" [ngValue]="'' + song.id">
+                                {{ song.title }} (ID: {{ song.id }})
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label text-muted small">New Audio File</label>
+                        <input type="file" accept=".mp3,audio/*" class="d-none" #replaceAudioPicker (change)="onReplaceAudioFileSelected($event)">
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-light rounded-pill" (click)="replaceAudioPicker.click()">
+                                Choose File
+                            </button>
+                            <div class="text-white small text-truncate flex-grow-1">
+                                {{ replaceAudioFileName || audioFileName || 'No file chosen' }}
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-1">
+                            Select a song and choose a new audio file to enable replace.
+                        </small>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="button" class="btn btn-outline-light rounded-pill w-100"
+                            [disabled]="!canReplaceAudio" (click)="replaceAudio()">
+                            Replace
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-3" *ngIf="isReplacingAudio || replaceAudioProgress > 0">
+                    <div class="progress" style="height: 7px;">
+                        <div class="progress-bar bg-info progress-bar-striped" [class.progress-bar-animated]="isReplacingAudio"
+                            role="progressbar" [style.width.%]="replaceAudioProgress"></div>
+                    </div>
+                    <small class="text-muted">Audio replace progress: {{ replaceAudioProgress }}%</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

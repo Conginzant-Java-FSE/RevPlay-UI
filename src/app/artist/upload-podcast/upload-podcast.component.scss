@@ -1,0 +1,125 @@
+.podcast-studio {
+    color: var(--text-primary);
+}
+
+.readable-file-input {
+    color: var(--text-primary);
+    color-scheme: auto;
+}
+
+.readable-file-input::file-selector-button {
+    color: #0f1a2d;
+    background: linear-gradient(135deg, #98adff, #f4c58e);
+    border: none;
+    border-radius: 10px;
+    padding: 0.42rem 0.8rem;
+    margin-right: 0.6rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.readable-file-input::-webkit-file-upload-button {
+    color: #0f1a2d;
+    background: linear-gradient(135deg, #98adff, #f4c58e);
+    border: none;
+    border-radius: 10px;
+    padding: 0.42rem 0.8rem;
+    margin-right: 0.6rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.podcast-list {
+    display: grid;
+    gap: 0.55rem;
+    max-height: 76vh;
+    overflow-y: auto;
+}
+
+.podcast-item {
+    border: 1px solid var(--panel-soft-border);
+    border-radius: 12px;
+    background: var(--panel-soft-bg);
+    color: var(--text-primary);
+    padding: 0.45rem;
+    display: flex;
+    gap: 0.55rem;
+    align-items: center;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+
+    img {
+        width: 44px;
+        height: 44px;
+        border-radius: 9px;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+
+    &.active {
+        border-color: rgba(243, 181, 107, 0.72);
+        background: rgba(243, 181, 107, 0.08);
+    }
+}
+
+.episode-list {
+    display: grid;
+    gap: 0.6rem;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.episode-item {
+    border: 1px solid var(--panel-soft-border);
+    border-radius: 10px;
+    background: var(--panel-soft-bg);
+    padding: 0.5rem;
+    display: grid;
+    gap: 0.45rem;
+
+    &.active {
+        border-color: rgba(243, 181, 107, 0.68);
+    }
+}
+
+.episode-main {
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    width: 100%;
+}
+
+.episode-audio {
+    width: 100%;
+    height: 34px;
+}
+
+.cover-preview {
+    width: 100%;
+    height: 110px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--panel-soft-border-strong);
+    background: rgba(0, 0, 0, 0.35);
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}
+
+.cover-edit-box {
+    border: 1px solid var(--panel-soft-border);
+    border-radius: 12px;
+    padding: 0.65rem;
+    background: var(--panel-soft-bg);
+}
+
+.cover-empty {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+}

@@ -1,0 +1,40 @@
+<nav class="navbar navbar-expand-lg h-100 px-4 d-flex align-items-center">
+    <a class="navbar-brand revplay-brand d-flex align-items-center p-0" routerLink="/home" aria-label="RevPlay Home">
+        <img src="assets/images/logo.png" alt="RevPlay logo" class="revplay-logo">
+    </a>
+    <button type="button" class="btn btn-sm btn-outline-light rounded-circle mx-3 sidebar-toggle"
+        aria-label="Toggle sidebar" (click)="onToggleSidebar()">
+        <i class="bi bi-list"></i>
+    </button>
+
+    <form class="navbar-search" (submit)="submitSearch(); $event.preventDefault()">
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input class="form-control" type="search" placeholder="Search"
+                [(ngModel)]="searchQuery" name="navbarSearch"
+                (keydown.enter)="submitSearch()">
+        </div>
+    </form>
+
+    <div class="user-profile dropdown ms-auto">
+        <button class="btn btn-dark rounded-pill d-flex align-items-center dropdown-toggle" type="button"
+            data-bs-toggle="dropdown" aria-expanded="false">
+            <div class="avatar-placeholder rounded-circle bg-secondary me-2 d-flex justify-content-center align-items-center">
+                <img *ngIf="profileImageUrl" [src]="(profileImageUrl | protectedMedia | async) || ''" (error)="onAvatarLoadError()" class="avatar-image" alt="Profile image">
+                <i *ngIf="!profileImageUrl" class="bi bi-person text-light"></i>
+            </div>
+            <span>{{ displayName }}</span>
+            <span *ngIf="isPremiumUser" class="badge rounded-pill text-bg-warning ms-2 premium-badge">PREMIUM</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow">
+            <li><a class="dropdown-item" [routerLink]="profileLink">Edit Profile</a></li>
+            <li><a class="dropdown-item" routerLink="/premium">Premium</a></li>
+            <li><a class="dropdown-item" routerLink="/settings">Settings</a></li>
+            <li><a class="dropdown-item" routerLink="/auth/change-password">Change Password</a></li>
+            <li>
+                <hr class="dropdown-divider border-secondary">
+            </li>
+            <li><button class="dropdown-item" type="button" (click)="logout()">Log out</button></li>
+        </ul>
+    </div>
+</nav>

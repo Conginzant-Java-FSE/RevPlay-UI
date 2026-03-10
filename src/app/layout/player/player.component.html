@@ -1,0 +1,288 @@
+<div class="player h-100 px-3">
+    <div class="current-track d-flex align-items-center">
+        <button type="button" class="current-track-main d-flex align-items-center text-start p-0 border-0 bg-transparent"
+            [disabled]="!playerState.currentItem" (click)="openNowPlayingOverlay()">
+            <div class="album-art me-3 rounded overflow-hidden shadow-sm d-flex justify-content-center align-items-center">
+                <i *ngIf="playerState.isAdPlaying" class="bi bi-megaphone-fill text-muted fs-4"></i>
+                <img *ngIf="currentTrackImage()" [src]="((currentTrackImage() | protectedMedia | async) || '')"
+                    class="img-fluid w-100 h-100 object-fit-cover" alt="Now playing cover art">
+                <i *ngIf="!currentTrackImage() && !playerState.isAdPlaying" class="bi bi-music-note-beamed text-muted fs-4"></i>
+            </div>
+
+            <div class="track-info">
+                <div *ngIf="playerState.isAdPlaying" class="title fw-bold text-white text-truncate">Now Playing: Sponsored Audio</div>
+                <div *ngIf="!playerState.isAdPlaying" class="title fw-bold text-white text-truncate">{{ playerState.currentItem?.title || 'No Track Selected' }}</div>
+                <div *ngIf="!playerState.isAdPlaying" class="artist text-muted small text-truncate d-flex align-items-center gap-2">
+                    {{ playerState.currentItem?.artistName || playerState.currentItem?.podcastName || 'Pick any track to start playing' }}
+                    <span *ngIf="isPremiumUser" class="badge rounded-pill text-bg-warning text-dark">Premium</span>
+                </div>
+                <app-ad-indicator *ngIf="playerState.isAdPlaying" [remainingSeconds]="adCountdownSeconds"></app-ad-indicator>
+            </div>
+        </button>
+
+        <div class="dropdown ms-2" *ngIf="playerState.currentItem">
+            <button type="button" class="btn btn-sm btn-outline-light rounded-circle current-song-menu-btn" data-bs-toggle="dropdown"
+                aria-expanded="false" title="Song options">
+                <i class="bi bi-three-dots"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-dark shadow">
+                <li><button type="button" class="dropdown-item" (click)="toggleCurrentSongLike()">{{ isCurrentSongLiked() ? 'Remove from liked songs' : 'Add to liked songs' }}</button></li>
+                <li><button type="button" class="dropdown-item" (click)="openAddToPlaylistPicker()">Add to playlist</button></li>
+                <li><button type="button" class="dropdown-item" (click)="addCurrentSongToQueue()">Add to queue</button></li>
+                <li><button type="button" class="dropdown-item" (click)="downloadCurrentSong()">{{ isDownloading ? 'Downloading...' : 'Download' }}</button></li>
+                <li><button type="button" class="dropdown-item" (click)="shareCurrentSong()">Share</button></li>
+                <li><button type="button" class="dropdown-item" (click)="shareCurrentSongTo('WHATSAPP')">Share to WhatsApp</button></li>
+                <li><button type="button" class="dropdown-item" (click)="shareCurrentSongTo('TELEGRAM')">Share to Telegram</button></li>
+                <li><button type="button" class="dropdown-item" (click)="goToAlbumFromCurrent()">Go to album</button></li>
+                <li><button type="button" class="dropdown-item" (click)="goToArtistFromCurrent()">Go to artist</button></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="controls d-flex flex-column align-items-center">
+        <app-ad-indicator *ngIf="playerState.isAdPlaying" class="mb-1" [remainingSeconds]="adCountdownSeconds"></app-ad-indicator>
+        <div class="buttons d-flex align-items-center">
+            <button class="btn control-btn" [ngClass]="playerState.isShuffle ? 'active' : 'inactive'" title="Shuffle"
+                type="button" (click)="playerService.toggleShuffle()">
+                <i class="bi bi-shuffle fs-5"></i>
+            </button>
+
+            <button class="btn control-btn text-white" type="button" title="Previous" (click)="playerService.previous()"
+                [disabled]="playerState.queue.length === 0 || playerState.isAdPlaying">
+                <i class="bi bi-skip-start-fill fs-4"></i>
+            </button>
+
+            <button class="btn btn-light rounded-circle play-pause-btn mx-2 shadow d-flex justify-content-center align-items-center"
+                type="button" title="Play or pause" (click)="playerService.togglePlay()"
+                [disabled]="!playerState.currentItem">
+                <div *ngIf="playerState.isLoading && !playerState.isPlaying" class="spinner-border spinner-border-sm text-dark" role="status"></div>
+                <i *ngIf="!playerState.isLoading && !playerState.isPlaying" class="bi bi-play-fill text-dark fs-3 ms-1"></i>
+                <i *ngIf="playerState.isPlaying" class="bi bi-pause-fill text-dark fs-3"></i>
+            </button>
+
+            <button class="btn control-btn text-white" type="button" title="Next" (click)="playerService.next()"
+                [disabled]="!playerState.currentItem || playerState.isAdPlaying">
+                <i class="bi bi-skip-end-fill fs-4"></i>
+            </button>
+
+            <button class="btn control-btn position-relative" [ngClass]="playerState.repeatMode !== 'OFF' ? 'active' : 'inactive'"
+                [title]="repeatLabel" type="button" (click)="playerService.toggleRepeat()">
+                <i class="bi bi-repeat fs-5"></i>
+                <span class="repeat-one-badge" *ngIf="playerState.repeatMode === 'ONE'">1</span>
+            </button>
+        </div>
+
+        <div class="progress-container w-100 d-flex align-items-center">
+            <span class="time small text-muted me-2">{{ progressStartLabel }}</span>
+            <div class="progress-shell">
+                <div class="progress-rail">
+                    <div class="buffer-fill" [style.width.%]="playerState.bufferedPercent || 0"></div>
+                    <div class="play-fill" [style.width.%]="playbackPercent"></div>
+                </div>
+                <input type="range" class="form-range player-slider progress-slider" min="0" step="0.01" [max]="playerState.duration || 100"
+                    [value]="playerState.currentTime" (input)="onSeek($event)" [disabled]="!playerState.currentItem || playerState.isAdPlaying">
+            </div>
+            <span class="time small text-muted ms-2">{{ progressEndLabel }}</span>
+        </div>
+    </div>
+
+    <div class="extra-controls d-flex justify-content-end align-items-center">
+        <button class="btn control-btn inactive" type="button" title="Mute / unmute" (click)="playerService.toggleMute()">
+            <i class="bi fs-5" [ngClass]="volumeIcon"></i>
+        </button>
+
+        <div class="volume-control d-flex align-items-center mx-2">
+            <input type="range" class="form-range player-slider" min="0" max="100" [value]="playerState.volume"
+                (input)="onVolumeChange($event)">
+        </div>
+
+        <button class="btn control-btn inactive position-relative" type="button" title="Queue" (click)="toggleQueuePanel()">
+            <i class="bi bi-music-note-list fs-5"></i>
+            <span class="queue-count" *ngIf="playerState.queue.length > 0">{{ playerState.queue.length }}</span>
+        </button>
+
+        <button class="btn control-btn ms-2" [ngClass]="playerState.autoplayEnabled ? 'active' : 'inactive'"
+            type="button" title="Autoplay" (click)="playerService.toggleAutoplay()">
+            <i class="bi bi-infinity fs-5"></i>
+        </button>
+    </div>
+
+    <div class="queue-panel" *ngIf="queuePanelOpen">
+        <div class="queue-header d-flex align-items-center justify-content-between mb-2">
+            <h6 class="m-0 text-white">Up Next</h6>
+            <button class="btn btn-sm btn-link text-muted p-0" type="button" (click)="toggleQueuePanel()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div *ngIf="actionError" class="alert alert-danger bg-dark border-danger text-danger py-2 px-3 small mb-2">
+            {{ actionError }}
+        </div>
+        <div *ngIf="actionMessage" class="alert alert-success bg-dark border-success text-success py-2 px-3 small mb-2">
+            {{ actionMessage }}
+        </div>
+
+        <div class="card bg-secondary-panel border-0 p-2 mb-2" *ngIf="showAddToPlaylistPicker">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="small text-white">Add to Playlist</div>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-2 py-1"
+                    (click)="closeAddToPlaylistPicker()">
+                    Close
+                </button>
+            </div>
+            <div class="row g-2 align-items-end">
+                <div class="col-8">
+                    <select class="form-select form-select-sm custom-input" [(ngModel)]="targetPlaylistIdForSongAdd">
+                        <option value="">Select playlist</option>
+                        <option *ngFor="let playlist of playlistTargets" [ngValue]="'' + playlist.id">
+                            {{ playlist.name }}
+                        </option>
+                    </select>
+                </div>
+                <div class="col-4">
+                    <button type="button" class="btn btn-sm btn-primary text-dark fw-bold w-100"
+                        [disabled]="isActionSaving || !targetPlaylistIdForSongAdd" (click)="addCurrentSongToSelectedPlaylist()">
+                        Add
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="queue-sync small text-muted mb-2" *ngIf="playerState.isQueueSyncing">Syncing queue...</div>
+        <div class="queue-empty text-muted small" *ngIf="upcomingQueueItems.length === 0">No upcoming tracks.</div>
+
+        <div class="queue-list" *ngIf="manualUpNextItems.length > 0">
+            <div class="small text-uppercase text-muted mb-2">Queue</div>
+            <div class="queue-item" *ngFor="let entry of manualUpNextItems; let i = index" [class.active]="isCurrentQueueItem(entry.item)">
+                <button class="queue-main text-start" type="button" (click)="playFromQueue(entry.item)">
+                    <div class="track text-truncate">{{ entry.item.title }}</div>
+                    <div class="artist text-truncate small text-muted">{{ entry.item.artistName || 'Unknown Artist' }}</div>
+                </button>
+                <div class="queue-actions">
+                    <button type="button" class="btn btn-link text-muted p-0" (click)="moveQueueItem(entry.item, 'UP')" [disabled]="entry.queueIndex === 0">
+                        <i class="bi bi-chevron-up"></i>
+                    </button>
+                    <button type="button" class="btn btn-link text-muted p-0" (click)="moveQueueItem(entry.item, 'DOWN')" [disabled]="entry.queueIndex === playerState.queue.length - 1">
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <button type="button" class="btn btn-link text-danger p-0" (click)="removeQueueItem(entry.item)">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="queue-list mt-2" *ngIf="autoplayUpNextItems.length > 0">
+            <div class="small text-uppercase text-muted mb-2">Autoplay</div>
+            <div class="queue-item" *ngFor="let entry of autoplayUpNextItems" [class.active]="isCurrentQueueItem(entry.item)">
+                <button class="queue-main text-start" type="button" (click)="playFromQueue(entry.item)">
+                    <div class="track text-truncate">{{ entry.item.title }}</div>
+                    <div class="artist text-truncate small text-muted">{{ entry.item.artistName || 'Unknown Artist' }}</div>
+                </button>
+                <div class="queue-actions">
+                    <button type="button" class="btn btn-link text-danger p-0" (click)="removeQueueItem(entry.item)">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div *ngIf="showPremiumFeatureModal" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+        style="background: rgba(0, 0, 0, 0.55); z-index: 2100;">
+        <div class="card bg-dark border-secondary text-white shadow" style="width: min(92vw, 420px);">
+            <div class="card-body p-4">
+                <h5 class="card-title mb-3">Premium Feature</h5>
+                <p class="text-muted mb-4">Downloading songs is available only for RevPlay Premium users.</p>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-outline-light" (click)="closePremiumFeatureModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary text-dark fw-bold" (click)="goToPremiumPage()">Upgrade to Premium</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div *ngIf="showDownloadToast" class="position-fixed bottom-0 end-0 p-3" style="z-index: 2100;">
+        <div class="toast show text-bg-dark border border-secondary">
+            <div class="toast-body">Download started.</div>
+        </div>
+    </div>
+
+    <div class="now-playing-overlay" *ngIf="showNowPlayingOverlay && playerState.currentItem" (click)="closeNowPlayingOverlay()">
+        <div class="now-playing-card" (click)="$event.stopPropagation()">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="small text-uppercase text-muted">Now Playing</div>
+                <button type="button" class="btn btn-sm btn-link text-white p-0" (click)="closeNowPlayingOverlay()">
+                    <i class="bi bi-x-lg fs-5"></i>
+                </button>
+            </div>
+
+            <div class="now-playing-art rounded-4 overflow-hidden mb-4 d-flex align-items-center justify-content-center">
+                <img *ngIf="currentTrackImage() && !playerState.isAdPlaying"
+                    [src]="((currentTrackImage() | protectedMedia | async) || '')" class="img-fluid w-100 h-100 object-fit-cover" alt="Current track cover">
+                <i *ngIf="playerState.isAdPlaying" class="bi bi-megaphone-fill text-muted fs-1"></i>
+                <i *ngIf="!currentTrackImage() && !playerState.isAdPlaying" class="bi bi-music-note-beamed text-muted fs-1"></i>
+            </div>
+
+            <div class="mb-3">
+                <h4 class="text-white fw-bold mb-1 text-truncate">
+                    {{ playerState.isAdPlaying ? 'Sponsored Audio' : (playerState.currentItem?.title || 'No Track Selected') }}
+                </h4>
+                <div *ngIf="!playerState.isAdPlaying" class="text-muted text-truncate d-flex align-items-center gap-2">
+                    {{ playerState.currentItem?.artistName || playerState.currentItem?.podcastName || 'Unknown Artist' }}
+                    <span *ngIf="isPremiumUser" class="badge rounded-pill text-bg-warning text-dark">Premium</span>
+                </div>
+                <app-ad-indicator *ngIf="playerState.isAdPlaying" [remainingSeconds]="adCountdownSeconds"></app-ad-indicator>
+            </div>
+
+            <div class="progress-container w-100 d-flex align-items-center mb-3">
+                <span class="time small text-muted me-2">{{ progressStartLabel }}</span>
+                <div class="progress-shell">
+                    <div class="progress-rail">
+                        <div class="buffer-fill" [style.width.%]="playerState.bufferedPercent || 0"></div>
+                        <div class="play-fill" [style.width.%]="playbackPercent"></div>
+                    </div>
+                    <input type="range" class="form-range player-slider progress-slider" min="0" step="0.01" [max]="playerState.duration || 100"
+                        [value]="playerState.currentTime" (input)="onSeek($event)" [disabled]="!playerState.currentItem || playerState.isAdPlaying">
+                </div>
+                <span class="time small text-muted ms-2">{{ progressEndLabel }}</span>
+            </div>
+
+            <div class="d-flex justify-content-center align-items-center gap-3 mb-3">
+                <button class="btn control-btn" [ngClass]="playerState.isShuffle ? 'active' : 'inactive'" type="button"
+                    title="Shuffle" (click)="playerService.toggleShuffle()">
+                    <i class="bi bi-shuffle fs-5"></i>
+                </button>
+                <button class="btn control-btn text-white" type="button" title="Previous" (click)="playerService.previous()"
+                    [disabled]="playerState.queue.length === 0 || playerState.isAdPlaying">
+                    <i class="bi bi-skip-start-fill fs-3"></i>
+                </button>
+                <button class="btn btn-light rounded-circle play-pause-btn shadow d-flex justify-content-center align-items-center"
+                    type="button" title="Play or pause" (click)="playerService.togglePlay()" [disabled]="!playerState.currentItem">
+                    <i *ngIf="!playerState.isPlaying" class="bi bi-play-fill text-dark fs-2 ms-1"></i>
+                    <i *ngIf="playerState.isPlaying" class="bi bi-pause-fill text-dark fs-2"></i>
+                </button>
+                <button class="btn control-btn text-white" type="button" title="Next" (click)="playerService.next()"
+                    [disabled]="!playerState.currentItem || playerState.isAdPlaying">
+                    <i class="bi bi-skip-end-fill fs-3"></i>
+                </button>
+                <button class="btn control-btn position-relative" [ngClass]="playerState.repeatMode !== 'OFF' ? 'active' : 'inactive'"
+                    [title]="repeatLabel" type="button" (click)="playerService.toggleRepeat()">
+                    <i class="bi bi-repeat fs-5"></i>
+                    <span class="repeat-one-badge" *ngIf="playerState.repeatMode === 'ONE'">1</span>
+                </button>
+            </div>
+
+            <div class="d-flex justify-content-center gap-2">
+                <button type="button" class="btn btn-outline-light btn-sm" (click)="shareCurrentSongTo('WHATSAPP')">
+                    <i class="bi bi-whatsapp me-1"></i>WhatsApp
+                </button>
+                <button type="button" class="btn btn-outline-light btn-sm" (click)="shareCurrentSongTo('TELEGRAM')">
+                    <i class="bi bi-telegram me-1"></i>Telegram
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+

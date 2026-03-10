@@ -1,0 +1,140 @@
+.content {
+    padding: 0.25rem 0.25rem 1.5rem;
+}
+
+.title {
+    margin-bottom: 1.2rem;
+}
+
+.section-title {
+    margin-bottom: 0.8rem;
+    font-size: 1.05rem;
+}
+
+.podcast-card {
+    display: flex;
+    min-height: 100%;
+    overflow: hidden;
+}
+
+.podcast-card-main {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    width: 100%;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.podcast-card-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    align-items: stretch;
+
+    .btn {
+        flex: 1 1 calc(50% - 0.5rem);
+        min-width: 0;
+        white-space: normal;
+        text-align: center;
+    }
+}
+
+.episode-preview {
+    display: grid;
+    gap: 0.35rem;
+    margin-bottom: 0.4rem;
+}
+
+.episode-preview-item {
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.84);
+    padding: 0.36rem 0.7rem;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.podcast-focus-cover {
+    width: 176px;
+    max-width: 100%;
+    flex: 0 0 auto;
+}
+
+.podcast-focus-copy {
+    max-width: 720px;
+}
+
+.episode-panel {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 1rem;
+}
+
+.episode-picker {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.episode-row {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: rgba(11, 17, 31, 0.82);
+    color: var(--text-primary);
+    width: 100%;
+    padding: 0.9rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    text-align: left;
+    overflow: hidden;
+    transition: border-color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+
+    &:hover,
+    &.active {
+        border-color: rgba(243, 181, 107, 0.74);
+        background: rgba(243, 181, 107, 0.09);
+        transform: translateY(-1px);
+    }
+}
+
+.episode-copy {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+.episode-copy .fw-semibold {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.episode-action {
+    flex: 0 0 auto;
+}
+
+.episode-action {
+    color: #f4c58e;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+@media (max-width: 767.98px) {
+    .podcast-focus-cover {
+        width: 132px;
+    }
+
+    .podcast-card-actions .btn {
+        flex-basis: 100%;
+    }
+
+    .episode-row {
+        padding: 0.8rem 0.85rem;
+    }
+}

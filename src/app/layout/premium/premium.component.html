@@ -1,0 +1,96 @@
+<div class="container py-4 premium-fade-in">
+    <div class="card bg-secondary-panel border-0 p-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="h3 fw-bold text-white mb-0">RevPlay Premium</h2>
+            <button type="button" class="btn btn-sm btn-outline-light rounded-circle d-inline-flex align-items-center justify-content-center"
+                style="width: 32px; height: 32px;" (click)="closePage()" aria-label="Close premium page">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <p class="text-muted mb-4">Unlock premium benefits for a better listening experience.</p>
+
+        <div *ngIf="premiumStatusErrorMessage" class="alert alert-warning bg-dark border-warning text-warning mb-3">
+            {{ premiumStatusErrorMessage }}
+        </div>
+
+        <div class="premium-status card bg-dark border-secondary p-3 mb-4">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <h3 class="h6 text-uppercase text-muted mb-0">Your Premium Status</h3>
+                <span class="badge rounded-pill"
+                    [class.text-bg-success]="isPremiumActive"
+                    [class.text-bg-secondary]="!isPremiumActive">
+                    {{ isPremiumActive ? 'Active' : 'Not Active' }}
+                </span>
+            </div>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <div class="status-label">Current Plan</div>
+                    <div class="status-value">{{ premiumPlanLabel }}</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="status-label">Expiry Date</div>
+                    <div class="status-value">{{ premiumExpiryLabel }}</div>
+                </div>
+            </div>
+            <div *ngIf="isPremiumActive" class="small text-success mt-3">
+                Premium is active on your account.
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <h3 class="h6 text-uppercase text-muted mb-3">Premium Benefits</h3>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item bg-transparent border-secondary text-white">Ad-free music playback</li>
+                <li class="list-group-item bg-transparent border-secondary text-white">Download songs for offline listening</li>
+                <li class="list-group-item bg-transparent border-secondary text-white">Unlimited uninterrupted streaming</li>
+            </ul>
+        </div>
+
+        <div class="mb-4">
+            <h3 class="h6 text-uppercase text-muted mb-3">Available Plans</h3>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <button type="button" class="plan-card card bg-dark text-start border-0 p-3 w-100"
+                        [class.active]="selectedPlan === 'MONTHLY'" (click)="selectPlan('MONTHLY')">
+                        <div class="small text-muted mb-1">MONTHLY</div>
+                        <div class="h5 text-white fw-bold mb-0">₹199</div>
+                        <div class="small text-muted">per month</div>
+                    </button>
+                </div>
+                <div class="col-md-6">
+                    <button type="button" class="plan-card card bg-dark text-start border-0 p-3 w-100 position-relative"
+                        [class.active]="selectedPlan === 'YEARLY'" (click)="selectPlan('YEARLY')">
+                        <span class="badge rounded-pill text-bg-warning text-dark fw-bold plan-badge">Best Value</span>
+                        <div class="small text-muted mb-1">YEARLY</div>
+                        <div class="h5 text-white fw-bold mb-0">₹1499</div>
+                        <div class="small text-muted">per year</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div *ngIf="errorMessage" class="alert alert-danger bg-dark border-danger text-danger mb-3">
+            {{ errorMessage }}
+        </div>
+
+        <div class="d-flex justify-content-start">
+            <button type="button" class="btn btn-primary text-dark fw-bold px-4" [disabled]="isUpgrading" (click)="upgradeToPremium()">
+                <span *ngIf="!isUpgrading">{{ isPremiumActive ? 'Renew Premium' : 'Upgrade to Premium' }}</span>
+                <span *ngIf="isUpgrading" class="spinner-border spinner-border-sm" role="status"></span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div *ngIf="showSuccessModal" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+    style="background: rgba(0, 0, 0, 0.55); z-index: 2100;">
+    <div class="card bg-dark border-secondary text-white shadow" style="width: min(92vw, 420px);">
+        <div class="card-body p-4">
+            <h5 class="card-title mb-3">Premium Activated</h5>
+            <p class="text-muted mb-4">You are now enjoying RevPlay Premium.</p>
+            <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-primary text-dark fw-bold" (click)="closeSuccessModal()">OK</button>
+            </div>
+        </div>
+    </div>
+</div>

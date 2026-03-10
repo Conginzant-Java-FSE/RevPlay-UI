@@ -1,0 +1,23 @@
+<div class="app-layout" [class.sidebar-collapsed]="isSidebarCollapsed">
+  <!-- Top Navbar -->
+  <app-navbar class="app-navbar" (toggleSidebar)="toggleSidebar()"></app-navbar>
+
+  <div class="app-body">
+    <!-- Left Sidebar -->
+    <app-sidebar class="app-sidebar"></app-sidebar>
+
+    <!-- Main Content Area -->
+    <main class="app-main-content">
+      <div class="app-main-scroll" #mainScroll (scroll)="onMainScroll()">
+        <router-outlet></router-outlet>
+      </div>
+    </main>
+  </div>
+
+  <div class="app-horizontal-scrollbar" #mainScrollbar (scroll)="onScrollbarScroll()">
+    <div class="app-horizontal-scrollbar-track" [style.width.px]="mainScrollWidth"></div>
+  </div>
+
+  <!-- Bottom Player Container -->
+  <app-player class="app-player-container"></app-player>
+</div>

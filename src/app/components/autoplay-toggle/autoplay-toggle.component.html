@@ -1,0 +1,11 @@
+<button
+  type="button"
+  class="btn autoplay-toggle-btn"
+  [class.autoplay-on]="enabled$ | async"
+  [class.autoplay-off]="!(enabled$ | async)"
+  (click)="toggle()"
+  aria-label="Toggle autoplay"
+  title="Autoplay"
+>
+  <i class="bi bi-infinity fs-5" aria-hidden="true"></i>
+</button>

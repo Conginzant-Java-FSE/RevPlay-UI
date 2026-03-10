@@ -1,0 +1,122 @@
+<div class="admin-analytics p-4 p-lg-5">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            <h1 class="fw-bold m-0 text-white d-flex align-items-center gap-2">
+                <a routerLink="/admin-studio/dashboard" class="text-white text-decoration-none" aria-label="Back to admin dashboard">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <span>Business Analytics</span>
+            </h1>
+            <p class="text-muted m-0">Revenue, premium conversion, and engagement overview.</p>
+        </div>
+        <button type="button" class="btn btn-outline-light rounded-pill px-4" (click)="refreshAnalytics()">
+            <i class="bi bi-arrow-clockwise me-2"></i>Refresh
+        </button>
+    </div>
+
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-4">{{ error }}</div>
+
+    <div *ngIf="isLoading" class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+
+    <div *ngIf="!isLoading">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-3 mb-4">
+            <div class="col">
+                <div class="card bg-secondary-panel border-0 rounded-4 p-3 h-100">
+                    <div class="small text-muted text-uppercase">Total Users</div>
+                    <div class="h4 text-white fw-bold mb-0">{{ overview.totalUsers | number }}</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card bg-secondary-panel border-0 rounded-4 p-3 h-100">
+                    <div class="small text-muted text-uppercase">Premium Users</div>
+                    <div class="h4 text-white fw-bold mb-0">{{ overview.activePremiumUsers | number }}</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card bg-secondary-panel border-0 rounded-4 p-3 h-100">
+                    <div class="small text-muted text-uppercase">Total Downloads</div>
+                    <div class="h4 text-white fw-bold mb-0">{{ overview.totalDownloads | number }}</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card bg-secondary-panel border-0 rounded-4 p-3 h-100">
+                    <div class="small text-muted text-uppercase">Total Song Plays</div>
+                    <div class="h4 text-white fw-bold mb-0">{{ overview.totalSongPlays | number }}</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card bg-secondary-panel border-0 rounded-4 p-3 h-100">
+                    <div class="small text-muted text-uppercase">Ad Impressions</div>
+                    <div class="h4 text-white fw-bold mb-0">{{ overview.totalAdImpressions | number }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="card bg-secondary-panel border-0 rounded-4 p-4 h-100">
+                    <h5 class="text-white fw-bold mb-3">Revenue Analytics</h5>
+                    <div class="chart-shell">
+                        <canvas #revenueChartCanvas></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card bg-secondary-panel border-0 rounded-4 p-4 h-100">
+                    <h5 class="text-white fw-bold mb-3">Top Mix Playlists</h5>
+                    <div class="chart-shell">
+                        <canvas #mixesChartCanvas></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-7">
+                <div class="card bg-secondary-panel border-0 rounded-4 p-4 h-100">
+                    <h5 class="text-white fw-bold mb-3">Top Downloaded Songs</h5>
+
+                    <div *ngIf="topDownloads.length > 0; else emptyDownloads" class="table-responsive">
+                        <table class="table table-borderless align-middle text-white mb-0">
+                            <thead class="text-muted small text-uppercase">
+                                <tr>
+                                    <th class="ps-0">Song ID</th>
+                                    <th class="text-end pe-0">Download Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let item of topDownloads">
+                                    <td class="ps-0">{{ item.songId }}</td>
+                                    <td class="text-end pe-0">{{ item.downloadCount | number }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <ng-template #emptyDownloads>
+                        <div class="text-muted">No top download data available.</div>
+                    </ng-template>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                <div class="card bg-secondary-panel border-0 rounded-4 p-4 h-100">
+                    <h5 class="text-white fw-bold mb-3">Premium Conversion Rate</h5>
+
+                    <div *ngIf="conversionRateLoading" class="text-muted">Loading...</div>
+                    <div *ngIf="!conversionRateLoading && conversionRateError" class="text-danger">{{ conversionRateError }}</div>
+
+                    <div *ngIf="!conversionRateLoading && !conversionRateError">
+                        <p class="text-muted mb-2">Premium Conversion Rate: {{ conversionRatePercent | number:'1.0-2' }}%</p>
+                        <div class="progress" role="progressbar" aria-label="Premium conversion rate"
+                            [attr.aria-valuenow]="conversionRatePercent" aria-valuemin="0" aria-valuemax="100"
+                            style="height: 14px;">
+                            <div class="progress-bar bg-success" [style.width.%]="conversionRatePercent"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

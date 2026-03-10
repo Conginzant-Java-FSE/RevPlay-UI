@@ -1,0 +1,133 @@
+.artist-dashboard {
+    color: var(--text-primary);
+    background: linear-gradient(180deg, rgba(111, 140, 255, 0.11) 0%, var(--bg-primary) 320px);
+    min-height: 100vh;
+}
+
+.dashboard-loading-hint {
+    width: fit-content;
+    border: 1px solid var(--panel-soft-border);
+    border-radius: 999px;
+    background: var(--theme-dark-surface);
+    padding: 0.35rem 0.8rem;
+}
+
+.stat-card {
+    &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4) !important;
+    }
+}
+
+.table {
+    background-color: transparent;
+
+    th {
+        border-bottom: 1px solid var(--border-color) !important;
+        color: var(--panel-soft-muted);
+    }
+
+    td {
+        color: var(--panel-soft-value);
+    }
+
+    tr {
+        &:last-child {
+            border-bottom: none !important;
+        }
+
+        &:hover {
+            background-color: var(--panel-soft-bg-strong);
+
+            td:first-child .fw-bold {
+                color: var(--accent-secondary);
+            }
+        }
+    }
+}
+
+.track-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.track-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    object-fit: cover;
+    border: 1px solid var(--panel-soft-border-strong);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    flex-shrink: 0;
+}
+
+.track-meta {
+    min-width: 0;
+}
+
+.btn-primary {
+    background-color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #04140b;
+
+    &:hover {
+        background-color: #25ca60;
+        border-color: #25ca60;
+        transform: scale(1.03);
+    }
+}
+
+.trend-chart {
+    height: 220px;
+    width: 100%;
+}
+
+.trend-chart canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.trend-list {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.85rem;
+}
+
+.trend-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 180px);
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.trend-meta {
+    min-width: 0;
+}
+
+.trend-name {
+    font-weight: 600;
+}
+
+.trend-count {
+    font-size: 0.85rem;
+}
+
+.trend-meter .progress {
+    height: 0.45rem;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.trend-meter .progress-bar {
+    background: linear-gradient(90deg, #f4c58e 0%, #f0a84c 100%);
+}
+
+@media (max-width: 991.98px) {
+    .trend-row {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,0 +1,65 @@
+.ads-upload-page {
+    color: var(--text-primary);
+}
+
+.metric-card,
+.inventory-item,
+.analytics-item {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+}
+
+.metric-card {
+    padding: 1rem 1.1rem;
+    min-height: 112px;
+}
+
+.metric-label {
+    color: rgba(255, 255, 255, 0.56);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.metric-value {
+    color: #fff;
+    font-size: 2rem;
+    font-weight: 700;
+    margin-top: 0.4rem;
+}
+
+.status-pill {
+    border: 1px solid rgba(51, 209, 122, 0.45);
+    border-radius: 999px;
+    color: #33d17a;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.35rem 0.7rem;
+}
+
+.status-pill.inactive {
+    border-color: rgba(255, 255, 255, 0.16);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.inventory-list,
+.analytics-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.inventory-item,
+.analytics-item {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1rem;
+}
+
+.tiny {
+    font-size: 0.72rem;
+}

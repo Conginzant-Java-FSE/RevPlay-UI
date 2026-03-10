@@ -1,0 +1,37 @@
+<div class="mix-playlist-page premium-fade-in">
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <a class="btn btn-sm btn-outline-light rounded-pill" routerLink="/home">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <h2 class="section-title mb-0">{{ playlistName }}</h2>
+    </div>
+
+    <p class="text-muted mb-4">Curated system mix playlist.</p>
+
+    <div *ngIf="isLoading" class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+
+    <div *ngIf="error" class="alert alert-danger bg-dark border-danger text-danger mb-3">
+        {{ error }}
+    </div>
+
+    <div class="playlist-list" *ngIf="!isLoading && songs.length > 0">
+        <button type="button" class="playlist-row" *ngFor="let song of songs; let i = index" (click)="playSong(song)">
+            <span class="playlist-index">{{ i + 1 }}</span>
+            <div class="playlist-cover">
+                <img [src]="((song.image | protectedMedia | async) || 'assets/images/placeholder-album.png')" (error)="onCoverError($event)"
+                    class="img-fluid object-fit-cover h-100 w-100" loading="lazy">
+            </div>
+            <div class="playlist-copy">
+                <div class="song-title">{{ song.title }}</div>
+                <div class="song-artist text-muted small text-truncate">{{ song.artist }}</div>
+            </div>
+            <span class="playlist-action"><i class="bi bi-play-fill"></i></span>
+        </button>
+    </div>
+
+    <div *ngIf="!isLoading && songs.length === 0" class="empty-note">
+        No songs available in this mix playlist.
+    </div>
+</div>

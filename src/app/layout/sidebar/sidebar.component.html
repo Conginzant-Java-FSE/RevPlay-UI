@@ -1,0 +1,105 @@
+<div class="sidebar-container d-flex flex-column p-3">
+    <ul class="nav nav-pills flex-column" *ngIf="isListener">
+        <li class="nav-item">
+            <a routerLink="/home" routerLinkActive="active-nav" [routerLinkActiveOptions]="{ exact: true }"
+                class="nav-link text-white hover-white">
+                <i class="bi bi-house-door me-3"></i><span>Home</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a routerLink="/search" routerLinkActive="active-nav" class="nav-link text-white hover-white">
+                <i class="bi bi-search me-3"></i><span>Search</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a routerLink="/library" routerLinkActive="active-nav" class="nav-link text-white hover-white">
+                <i class="bi bi-collection-play me-3"></i><span>Library</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a routerLink="/liked-songs" routerLinkActive="active-nav" class="nav-link text-white hover-white">
+                <i class="bi bi-heart me-3"></i><span>Liked Songs</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a routerLink="/podcasts" routerLinkActive="active-nav" class="nav-link text-white hover-white">
+                <i class="bi bi-broadcast me-3"></i><span>Podcasts</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a [routerLink]="['/library']" [queryParams]="{ create: 1 }" routerLinkActive="active-nav" class="nav-link text-white hover-white">
+                <i class="bi bi-plus-circle me-3"></i><span>Create Playlist</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a routerLink="/premium" routerLinkActive="active-nav" class="nav-link text-white hover-white">
+                <i class="bi bi-gem me-3"></i><span>Premium</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a routerLink="/made-for-you" routerLinkActive="active-nav" class="nav-link text-white hover-white">
+                <i class="bi bi-stars me-3"></i><span>Made For You</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a routerLink="/genres" routerLinkActive="active-nav" class="nav-link text-white hover-white">
+                <i class="bi bi-grid me-3"></i><span>Genres</span>
+            </a>
+        </li>
+        <li class="nav-item" *ngIf="!isArtist">
+            <a [routerLink]="profileLink" routerLinkActive="active-nav" class="nav-link text-white hover-white">
+                <i class="bi bi-person me-3"></i><span>Profile</span>
+            </a>
+        </li>
+    </ul>
+
+    <hr class="border-secondary my-3" *ngIf="isListener && (isArtist || isAdmin)">
+
+    <ul class="nav nav-pills flex-column">
+        <li class="nav-item" *ngIf="isArtist">
+            <a routerLink="/creator-studio/dashboard" routerLinkActive="active-nav" class="nav-link text-white hover-white">
+                <i class="bi bi-music-note-list me-3 neon-text-secondary"></i><span>Creator Studio</span>
+            </a>
+        </li>
+        <li class="nav-item" *ngIf="isArtist">
+            <a routerLink="/creator-studio/profile" routerLinkActive="active-nav" class="nav-link text-white hover-white ps-4">
+                <i class="bi bi-person-badge me-3"></i><span>Artist Profile</span>
+            </a>
+        </li>
+        <li class="nav-item" *ngIf="isArtist">
+            <a routerLink="/creator-studio/songs" routerLinkActive="active-nav" class="nav-link text-white hover-white ps-4">
+                <i class="bi bi-music-note-list me-3"></i><span>Song Manager</span>
+            </a>
+        </li>
+        <li class="nav-item" *ngIf="isArtist">
+            <a routerLink="/creator-studio/manage-albums" routerLinkActive="active-nav" class="nav-link text-white hover-white ps-4">
+                <i class="bi bi-disc me-3"></i><span>Album Manager</span>
+            </a>
+        </li>
+        <li class="nav-item" *ngIf="isArtist">
+            <a routerLink="/creator-studio/upload-song" routerLinkActive="active-nav" class="nav-link text-white hover-white ps-4">
+                <i class="bi bi-cloud-upload me-3"></i><span>Upload Song</span>
+            </a>
+        </li>
+        <li class="nav-item" *ngIf="isArtist">
+            <a routerLink="/creator-studio/podcasts" routerLinkActive="active-nav" class="nav-link text-white hover-white ps-4">
+                <i class="bi bi-mic-fill me-3"></i><span>Podcast Studio</span>
+            </a>
+        </li>
+        <li class="nav-item" *ngIf="isAdmin">
+            <a routerLink="/admin-studio/dashboard" routerLinkActive="active-nav" class="nav-link text-white hover-white">
+                <i class="bi bi-shield-lock me-3 text-danger"></i><span>Admin Studio</span>
+            </a>
+        </li>
+        <li class="nav-item" *ngIf="isAdmin">
+            <a routerLink="/admin-studio/system-playlists" routerLinkActive="active-nav" class="nav-link text-white hover-white ps-4">
+                <i class="bi bi-collection-play me-3"></i><span>System Playlists</span>
+            </a>
+        </li>
+        <li class="nav-item mt-2">
+            <a routerLink="/settings" routerLinkActive="active-nav" class="nav-link text-white hover-white">
+                <i class="bi bi-gear me-3"></i><span>Settings</span>
+            </a>
+        </li>
+    </ul>
+</div>
