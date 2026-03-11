@@ -1,10 +1,11 @@
-import { Component } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth';
 import { resolveHttpErrorMessage } from '../../core/utils/error-message.util';
-import { finalize } from 'rxjs';
+import { EMPTY, finalize } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-change-password',
@@ -22,7 +23,11 @@ export class ChangePassword {
   error: string | null = null;
   successMessage: string | null = null;
 
-  constructor(private authService: AuthService) { }
+  constructor(
+    private authService: AuthService,
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef
+  ) { }
 
   onSubmit(): void {
     if (!this.currentPassword.trim() || !this.newPassword.trim() || !this.confirmNewPassword.trim()) {
@@ -51,28 +56,34 @@ export class ChangePassword {
       currentPassword: this.currentPassword,
       newPassword: this.newPassword
     }).pipe(
-      finalize(() => {
-        this.isLoading = false;
-      })
-    ).subscribe({
-      next: (response: any) => {
-        this.isLoading = false;
-        if (response && response.success === false) {
-          this.error = this.resolveMessage(response) || 'Password change failed. Please try again.';
+      tap((response: any) => {
+        this.ngZone.run(() => {
+          if (response?.success === false) {
+            this.error = this.resolveMessage(response) ?? 'Password change failed. Please try again.';
+            this.successMessage = null;
+            return;
+          }
+          this.error = null;
+          this.successMessage = this.resolveMessage(response) ?? 'Password changed successfully.';
+          this.currentPassword = '';
+          this.newPassword = '';
+          this.confirmNewPassword = '';
+        });
+      }),
+      catchError((err) => {
+        this.ngZone.run(() => {
+          this.error = resolveHttpErrorMessage(err, '/auth/change-password');
           this.successMessage = null;
-          return;
-        }
-        this.error = null;
-        this.successMessage = this.resolveMessage(response) || 'Password changed successfully.';
-        this.currentPassword = '';
-        this.newPassword = '';
-        this.confirmNewPassword = '';
-      },
-      error: (err) => {
-        this.isLoading = false;
-        this.error = resolveHttpErrorMessage(err, '/auth/change-password');
-      }
-    });
+        });
+        return EMPTY;
+      }),
+      finalize(() => {
+        this.ngZone.run(() => {
+          this.isLoading = false;
+          this.cdr.markForCheck();
+        });
+      })
+    ).subscribe();
   }
 
   private resolveMessage(response: any): string | null {
@@ -80,8 +91,10 @@ export class ChangePassword {
       return response.trim() || null;
     }
     const candidate = response?.data?.message ?? response?.message ?? response?.data ?? response?.data?.data?.message;
-    const resolved = typeof candidate === 'string' ? candidate.trim() : '';
-    return resolved || null;
+    if (typeof candidate === 'string') {
+      return candidate.trim() || null;
+    }
+    return null;
   }
 
   isPasswordMatch(): boolean {
