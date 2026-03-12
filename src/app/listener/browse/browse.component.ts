@@ -33,6 +33,7 @@ export class BrowseComponent implements OnInit {
     private readonly recentUploadsCacheKey = 'revplay_artist_recent_uploads_cache';
     private readonly dashboardCacheKey = 'revplay_artist_dashboard_cache';
     private readonly artistProfileImageCacheKey = 'revplay_artist_profile_image_cache_v1';
+    private readonly podcastPlayCountStorageKey = 'revplay_podcast_play_count_cache_v1';
     trendingNow: any[] = [];
     recommendedForYou: any[] = [];
     madeForYou: any[] = [];
@@ -1160,7 +1161,7 @@ export class BrowseComponent implements OnInit {
                 description: item?.description ?? item?.subtitle ?? '',
                 coverUrl: this.resolveMediaImage(item) ||
                     this.artistService.getCachedAlbumImage(Number(item?.albumId ?? item?.id ?? 0)),
-                playCount: this.resolvePlayCount(item),
+                playCount: this.resolveMergedPodcastPlayCount(item),
                 isFollowed: this.followingService.isPodcastFollowed(Number(item?.podcastId ?? item?.id ?? item?.contentId ?? 0))
             }))
             .filter((item: any) => item.id > 0 && !this.isSmokeTestName(item?.title));
@@ -1971,25 +1972,31 @@ export class BrowseComponent implements OnInit {
                 return of(podcast);
             }
 
-            return this.artistService.getPodcast(podcastId).pipe(
-                map((detail) => ({
-                    ...podcast,
-                    ...detail,
-                    id: podcastId,
-                    podcastId,
-                    title: detail?.title ?? podcast?.title ?? `Podcast #${podcastId}`,
-                    description: detail?.description ?? podcast?.description ?? '',
-                    coverUrl: this.resolveMediaImage(detail) || String(podcast?.coverUrl ?? '').trim(),
-                    playCount: Math.max(this.resolvePlayCount(detail), Number(podcast?.playCount ?? 0))
-                })),
-                catchError(() => of(podcast))
-            );
-        });
+                return this.artistService.getPodcast(podcastId).pipe(
+                    map((detail) => ({
+                        ...podcast,
+                        ...detail,
+                        id: podcastId,
+                        podcastId,
+                        title: detail?.title ?? podcast?.title ?? `Podcast #${podcastId}`,
+                        description: detail?.description ?? podcast?.description ?? '',
+                        coverUrl: this.resolveMediaImage(detail) || String(podcast?.coverUrl ?? '').trim(),
+                        playCount: Math.max(
+                            this.resolvePlayCount(detail),
+                            Number(podcast?.playCount ?? 0),
+                            this.getPersistedPodcastPlayCount(podcastId)
+                        )
+                    })),
+                    catchError(() => of(podcast))
+                );
+            });
 
         return forkJoin(requests);
     }
 
     private incrementPodcastPlayCount(podcastId: number): void {
+        this.persistPodcastPlayCountIncrement(podcastId);
+
         const bump = (items: any[]) =>
             (items ?? []).map((item: any) => {
                 const id = Number(item?.podcastId ?? item?.id ?? 0);
@@ -2005,6 +2012,51 @@ export class BrowseComponent implements OnInit {
         this.popularPodcasts = bump(this.popularPodcasts);
         this.recommendedPodcasts = bump(this.recommendedPodcasts);
         this.cdr.markForCheck();
+    }
+
+    private resolveMergedPodcastPlayCount(item: any): number {
+        const podcastId = Number(item?.podcastId ?? item?.id ?? item?.contentId ?? 0);
+        return Math.max(
+            this.resolvePlayCount(item),
+            this.getPersistedPodcastPlayCount(podcastId)
+        );
+    }
+
+    private persistPodcastPlayCountIncrement(podcastId: number): void {
+        const userId = Number(this.userId ?? 0);
+        if (userId <= 0 || podcastId <= 0) {
+            return;
+        }
+
+        const cache = this.getPodcastPlayCountCache();
+        const scoped = cache[String(userId)] ?? {};
+        const current = Number(scoped[String(podcastId)] ?? 0);
+        scoped[String(podcastId)] = current + 1;
+        cache[String(userId)] = scoped;
+        localStorage.setItem(this.podcastPlayCountStorageKey, JSON.stringify(cache));
+    }
+
+    private getPersistedPodcastPlayCount(podcastId: number): number {
+        const userId = Number(this.userId ?? 0);
+        if (userId <= 0 || podcastId <= 0) {
+            return 0;
+        }
+
+        const cache = this.getPodcastPlayCountCache();
+        return Number(cache[String(userId)]?.[String(podcastId)] ?? 0);
+    }
+
+    private getPodcastPlayCountCache(): Record<string, Record<string, number>> {
+        try {
+            const raw = localStorage.getItem(this.podcastPlayCountStorageKey);
+            if (!raw) {
+                return {};
+            }
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch {
+            return {};
+        }
     }
 
     private mergePodcastCards(...groups: any[][]): any[] {
