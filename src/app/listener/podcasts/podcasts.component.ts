@@ -21,6 +21,7 @@ import { hasAnyRole, hasRole } from '../../core/utils/role.util';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PodcastsComponent implements OnInit {
+  private readonly podcastPlayCountStorageKey = 'revplay_podcast_play_count_cache_v1';
   popular: any[] = [];
   recommended: any[] = [];
   selectedPodcast: any | null = null;
@@ -261,7 +262,7 @@ export class PodcastsComponent implements OnInit {
       id: Number(item?.podcastId ?? item?.id ?? 0),
       title: item?.title ?? 'Podcast',
       description: item?.description ?? '',
-      playCount: this.resolvePodcastPlayCount(item),
+      playCount: this.resolveMergedPodcastPlayCount(item),
       coverArtUrl: this.resolvePodcastImage(item),
       isFollowed: this.followingService.isPodcastFollowed(Number(item?.podcastId ?? item?.id ?? 0))
     })).filter((item) => item.podcastId > 0);
@@ -401,7 +402,8 @@ export class PodcastsComponent implements OnInit {
               episodePreviewTitles: previewTitles,
               playCount: Math.max(
                 this.resolvePodcastPlayCount(detail),
-                Number(podcast?.playCount ?? 0)
+                Number(podcast?.playCount ?? 0),
+                this.getPersistedPodcastPlayCount(podcastId)
               )
             };
           }),
@@ -412,6 +414,8 @@ export class PodcastsComponent implements OnInit {
   }
 
   private incrementPodcastPlayCount(podcastId: number): void {
+    this.persistPodcastPlayCountIncrement(podcastId);
+
     const bump = (items: any[]) =>
       (items ?? []).map((item: any) => {
         const id = Number(item?.podcastId ?? item?.id ?? 0);
@@ -460,6 +464,56 @@ export class PodcastsComponent implements OnInit {
       item?.stats?.playCount ??
       0
     );
+  }
+
+  private resolveMergedPodcastPlayCount(item: any): number {
+    const podcastId = Number(item?.podcastId ?? item?.id ?? 0);
+    return Math.max(
+      this.resolvePodcastPlayCount(item),
+      this.getPersistedPodcastPlayCount(podcastId)
+    );
+  }
+
+  private persistPodcastPlayCountIncrement(podcastId: number): void {
+    const userId = this.getCurrentUserId();
+    if (userId <= 0 || podcastId <= 0) {
+      return;
+    }
+
+    const cache = this.getPodcastPlayCountCache();
+    const scoped = cache[String(userId)] ?? {};
+    const current = Number(scoped[String(podcastId)] ?? 0);
+    scoped[String(podcastId)] = current + 1;
+    cache[String(userId)] = scoped;
+    localStorage.setItem(this.podcastPlayCountStorageKey, JSON.stringify(cache));
+  }
+
+  private getPersistedPodcastPlayCount(podcastId: number): number {
+    const userId = this.getCurrentUserId();
+    if (userId <= 0 || podcastId <= 0) {
+      return 0;
+    }
+
+    const cache = this.getPodcastPlayCountCache();
+    return Number(cache[String(userId)]?.[String(podcastId)] ?? 0);
+  }
+
+  private getPodcastPlayCountCache(): Record<string, Record<string, number>> {
+    try {
+      const raw = localStorage.getItem(this.podcastPlayCountStorageKey);
+      if (!raw) {
+        return {};
+      }
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private getCurrentUserId(): number {
+    const user = this.authService.getCurrentUserSnapshot() ?? this.getStoredUser();
+    return Number(user?.userId ?? user?.id ?? 0);
   }
 
   private toPodcastPlayerTrack(episode: any, podcast: any): any {
