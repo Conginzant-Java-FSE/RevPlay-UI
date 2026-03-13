@@ -1,4 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
+import { RouterTestingModule } from '@angular/router/testing';
 
 import { ChangePassword } from './change-password';
 
@@ -8,7 +11,10 @@ describe('ChangePassword', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ChangePassword],
+      imports: [ChangePassword, RouterTestingModule],
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null }, paramMap: { get: () => null }, data: {} }, queryParamMap: of({ get: () => null }), paramMap: of({ get: () => null }), queryParams: of({}), params: of({}), data: of({}) } }
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ChangePassword);
@@ -20,3 +26,12 @@ describe('ChangePassword', () => {
     expect(component).toBeTruthy();
   });
 });
+
+
+
+
+
+
+
+
+

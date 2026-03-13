@@ -1,17 +1,23 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
+import { RouterTestingModule } from '@angular/router/testing';
 
-import { ManageAlbums } from './manage-albums';
+import { ManageAlbumsComponent } from './manage-albums.component';
 
-describe('ManageAlbums', () => {
-  let component: ManageAlbums;
-  let fixture: ComponentFixture<ManageAlbums>;
+describe('ManageAlbumsComponent', () => {
+  let component: ManageAlbumsComponent;
+  let fixture: ComponentFixture<ManageAlbumsComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ManageAlbums],
+      imports: [ManageAlbumsComponent, RouterTestingModule],
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null }, paramMap: { get: () => null }, data: {} }, queryParamMap: of({ get: () => null }), paramMap: of({ get: () => null }), queryParams: of({}), params: of({}), data: of({}) } }
+      ],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(ManageAlbums);
+    fixture = TestBed.createComponent(ManageAlbumsComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });
@@ -20,3 +26,14 @@ describe('ManageAlbums', () => {
     expect(component).toBeTruthy();
   });
 });
+
+
+
+
+
+
+
+
+
+
+

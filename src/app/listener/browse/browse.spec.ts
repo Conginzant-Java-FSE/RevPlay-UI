@@ -1,17 +1,23 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
+import { RouterTestingModule } from '@angular/router/testing';
 
-import { Browse } from './browse';
+import { BrowseComponent } from './browse.component';
 
-describe('Browse', () => {
-  let component: Browse;
-  let fixture: ComponentFixture<Browse>;
+describe('BrowseComponent', () => {
+  let component: BrowseComponent;
+  let fixture: ComponentFixture<BrowseComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [Browse],
+      imports: [BrowseComponent, RouterTestingModule],
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null }, paramMap: { get: () => null }, data: {} }, queryParamMap: of({ get: () => null }), paramMap: of({ get: () => null }), queryParams: of({}), params: of({}), data: of({}) } }
+      ],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(Browse);
+    fixture = TestBed.createComponent(BrowseComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });
@@ -20,3 +26,14 @@ describe('Browse', () => {
     expect(component).toBeTruthy();
   });
 });
+
+
+
+
+
+
+
+
+
+
+

@@ -1,17 +1,23 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
+import { RouterTestingModule } from '@angular/router/testing';
 
-import { Playlists } from './playlists';
+import { PlaylistsComponent } from './playlists.component';
 
-describe('Playlists', () => {
-  let component: Playlists;
-  let fixture: ComponentFixture<Playlists>;
+describe('PlaylistsComponent', () => {
+  let component: PlaylistsComponent;
+  let fixture: ComponentFixture<PlaylistsComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [Playlists],
+      imports: [PlaylistsComponent, RouterTestingModule],
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null }, paramMap: { get: () => null }, data: {} }, queryParamMap: of({ get: () => null }), paramMap: of({ get: () => null }), queryParams: of({}), params: of({}), data: of({}) } }
+      ],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(Playlists);
+    fixture = TestBed.createComponent(PlaylistsComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });
@@ -20,3 +26,14 @@ describe('Playlists', () => {
     expect(component).toBeTruthy();
   });
 });
+
+
+
+
+
+
+
+
+
+
+

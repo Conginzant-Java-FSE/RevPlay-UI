@@ -1,0 +1,90 @@
+﻿[33mΓ¥»[39m Building...
+[32mΓ£ö[39m Building...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                 [2m | [22m [1mRaw size[22m[2m | [22m[1mEstimated transfer size[22m
+[32mstyles-OOKM2NWB.css[39m[2m | [22m[2mstyles[22m                [2m | [22m[36m258.18 kB[39m[2m | [22m               [36m27.77 kB[39m
+[32mchunk-L2OX735M.js[39m  [2m | [22m[2m-[22m                     [2m | [22m[36m177.85 kB[39m[2m | [22m               [36m51.59 kB[39m
+[32mmain-7Q42GE4T.js[39m   [2m | [22m[2mmain[22m                  [2m | [22m[36m156.07 kB[39m[2m | [22m               [36m41.38 kB[39m
+[32mchunk-GJNFDVUQ.js[39m  [2m | [22m[2m-[22m                     [2m | [22m[36m116.06 kB[39m[2m | [22m               [36m29.22 kB[39m
+[32mchunk-FQZAST7K.js[39m  [2m | [22m[2m-[22m                     [2m | [22m [36m48.25 kB[39m[2m | [22m               [36m10.37 kB[39m
+[32mchunk-4ZMP4V5C.js[39m  [2m | [22m[2m-[22m                     [2m | [22m [36m38.48 kB[39m[2m | [22m                [36m7.93 kB[39m
+[32mchunk-MAISSLBE.js[39m  [2m | [22m[2m-[22m                     [2m | [22m [36m15.34 kB[39m[2m | [22m                [36m3.39 kB[39m
+[32mchunk-J6OFCTYO.js[39m  [2m | [22m[2m-[22m                     [2m | [22m  [36m6.74 kB[39m[2m | [22m                [36m1.95 kB[39m
+[32mchunk-UJDZYMK3.js[39m  [2m | [22m[2m-[22m                     [2m | [22m  [36m2.32 kB[39m[2m | [22m              [36m680 bytes[39m
+[32mchunk-OZBCLREZ.js[39m  [2m | [22m[2m-[22m                     [2m | [22m  [36m1.34 kB[39m[2m | [22m              [36m544 bytes[39m
+
+[1m [22m                  [2m | [22m[1mInitial total[22m         [2m | [22m[1m[93m820.62 kB[39m[22m[2m | [22m              [1m174.82 kB[22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                 [2m | [22m [1mRaw size[22m[2m | [22m[1mEstimated transfer size[22m
+[32mchunk-XOVXLTE7.js[39m  [2m | [22m[2martist-module[22m         [2m | [22m[36m368.82 kB[39m[2m | [22m               [36m87.99 kB[39m
+[32mchunk-3QZYZWEU.js[39m  [2m | [22m[2mlistener-module[22m       [2m | [22m[36m319.80 kB[39m[2m | [22m               [36m47.10 kB[39m
+[32mchunk-3J2RWHPW.js[39m  [2m | [22m[2madmin-module[22m          [2m | [22m[36m124.63 kB[39m[2m | [22m               [36m22.94 kB[39m
+[32mchunk-4TB2LXSC.js[39m  [2m | [22m[2mlayout-module[22m         [2m | [22m [36m67.02 kB[39m[2m | [22m               [36m13.91 kB[39m
+[32mchunk-GM4EBQ2M.js[39m  [2m | [22m[2mauth-module[22m           [2m | [22m [36m40.05 kB[39m[2m | [22m                [36m8.44 kB[39m
+[32mchunk-P2AZ6AAU.js[39m  [2m | [22m[2m-[22m                     [2m | [22m [36m11.74 kB[39m[2m | [22m                [36m3.24 kB[39m
+[32mchunk-HEC3GA22.js[39m  [2m | [22m[2mpremium-component[22m     [2m | [22m  [36m8.58 kB[39m[2m | [22m                [36m2.70 kB[39m
+[32mchunk-UJIRZVG7.js[39m  [2m | [22m[2m-[22m                     [2m | [22m  [36m7.77 kB[39m[2m | [22m                [36m2.42 kB[39m
+[32mchunk-4HREIMDV.js[39m  [2m | [22m[2msettings-component[22m    [2m | [22m  [36m7.29 kB[39m[2m | [22m                [36m2.12 kB[39m
+[32mchunk-HXDJWDSZ.js[39m  [2m | [22m[2m-[22m                     [2m | [22m  [36m6.50 kB[39m[2m | [22m                [36m2.11 kB[39m
+[32mchunk-2YZW4RYY.js[39m  [2m | [22m[2m-[22m                     [2m | [22m  [36m2.63 kB[39m[2m | [22m              [36m882 bytes[39m
+[32mchunk-BMGBQSAS.js[39m  [2m | [22m[2m-[22m                     [2m | [22m  [36m2.42 kB[39m[2m | [22m              [36m804 bytes[39m
+[32mchunk-BZTWIT55.js[39m  [2m | [22m[2mverify-email-component[22m[2m | [22m[36m266 bytes[39m[2m | [22m              [36m266 bytes[39m
+[32mchunk-DXYAC5GZ.js[39m  [2m | [22m[2mreset-password[22m        [2m | [22m[36m259 bytes[39m[2m | [22m              [36m259 bytes[39m
+
+Application bundle generation complete. [18.132 seconds] - 2026-03-12T23:58:39.480Z
+
+node.exe : 
+[1m[33m[33mΓû▓ [43;
+33m[[43;30mWARNING[43
+;33m][0m [1mbundle 
+initial exceeded 
+maximum budget. Budget 
+700.00 kB was not met 
+by 120.62 kB with a 
+total of 820.62 kB.[0m
+At C:\Users\kalya\AppDa
+ta\Roaming\npm\ng.ps1:2
+4 char:5
++     & "node$exe"  "$b
+asedir/node_modules/@an
+gular/cli/bin/ng.js" 
+$arg ...
++     ~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: ([1m[33m[33   
+ mΓ... 820.62 kB.[    
+0m:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+
+
+[33mΓû▓ [43;33m[[43;
+30mWARNING[43;33m][0m
+ [1msrc/app/auth/regis
+ter/register.scss 
+exceeded maximum 
+budget. Budget 7.00 kB 
+was not met by 1.02 kB 
+with a total of 8.02 
+kB.[0m
+
+
+[33mΓû▓ [43;33m[[43;
+30mWARNING[43;33m][0m
+ [1msrc/app/listener/s
+earch/search.component.
+scss exceeded maximum 
+budget. Budget 7.00 kB 
+was not met by 1.38 kB 
+with a total of 8.38 
+kB.[0m
+
+[39m[22m
+Output location: C:\Users\kalya\Videos\RevPlay-UI\dist\revplay-ui
+

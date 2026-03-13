@@ -1,17 +1,23 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
+import { RouterTestingModule } from '@angular/router/testing';
 
-import { ManageGenres } from './manage-genres';
+import { ManageGenresComponent } from './manage-genres.component';
 
-describe('ManageGenres', () => {
-  let component: ManageGenres;
-  let fixture: ComponentFixture<ManageGenres>;
+describe('ManageGenresComponent', () => {
+  let component: ManageGenresComponent;
+  let fixture: ComponentFixture<ManageGenresComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ManageGenres],
+      imports: [ManageGenresComponent, RouterTestingModule],
+      providers: [
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null }, paramMap: { get: () => null }, data: {} }, queryParamMap: of({ get: () => null }), paramMap: of({ get: () => null }), queryParams: of({}), params: of({}), data: of({}) } }
+      ],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(ManageGenres);
+    fixture = TestBed.createComponent(ManageGenresComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });
@@ -20,3 +26,14 @@ describe('ManageGenres', () => {
     expect(component).toBeTruthy();
   });
 });
+
+
+
+
+
+
+
+
+
+
+
