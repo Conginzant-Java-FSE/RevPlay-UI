@@ -1,5 +1,4 @@
 import { TestBed } from '@angular/core/testing';
-
 import { Artist } from './artist';
 
 describe('Artist', () => {
@@ -14,3 +13,5 @@ describe('Artist', () => {
     expect(service).toBeTruthy();
   });
 });
+
+
